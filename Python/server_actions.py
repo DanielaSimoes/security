@@ -1,7 +1,7 @@
 import logging
-from log import *
-from server_registry import *
-from server_client import *
+from .log import *
+from .server_registry import *
+from .server_client import *
 import json
 
 class ServerActions:
@@ -48,7 +48,7 @@ class ServerActions:
                     str(req['type']) + " Should be one of: " + str(self.messageTypes.keys()))
                 client.sendResult({"error": "unknown request"})
 
-        except Exception, e:
+        except Exception as e:
             logging.exception("Could not handle request")
 
     def processCreate(self, data, client):

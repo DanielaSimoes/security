@@ -1,5 +1,5 @@
 import logging
-from log import *
+from .log import *
 import json
 import sys
 
@@ -40,7 +40,7 @@ class Client:
 
         self.bufin += data
         reqs = self.bufin.split(TERMINATOR)
-        print reqs
+        print(reqs)
         self.bufin = reqs[-1]
         return reqs[:-1]
 
