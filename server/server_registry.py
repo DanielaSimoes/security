@@ -1,6 +1,6 @@
 import os
 import sys
-from .log import *
+from log import *
 import logging
 import re
 import json

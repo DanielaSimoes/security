@@ -8,14 +8,13 @@
 
 from socket import *
 from select import *
+from log import *
 import json
 import sys
 import time
-import logging
-from .log import *
-from .server_client import *
-from .server_registry import *
-from .server_actions import *
+from server_client import *
+from server_registry import *
+from server_actions import *
 
 # Server address
 HOST = ""   # All available interfaces
@@ -139,7 +138,7 @@ class Server:
         while True:
             # sockets to select for reading: (the server socket + every open
             # client connection)
-            rlist = [self.ss] + self.clients.keys()
+            rlist = [self.ss] + list(self.clients.keys())
 
             # sockets to select for writing: (those that have something in
             # bufout)
@@ -173,12 +172,16 @@ class Server:
 
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     if len(sys.argv) > 1:
         PORT = int(sys.argv[1])
 
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, formatter=logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(message)s'))
+    logger = logging.getLogger("security-server")
+    console_handler = logging.StreamHandler()
+    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.DEBUG)
 
     serv = None
     while True:

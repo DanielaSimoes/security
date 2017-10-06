@@ -1,6 +1,7 @@
 import inspect
 import logging
 
+
 def log(level, message):
     func = inspect.currentframe().f_back.f_code
     logging.log(level, "%18s:%3i: %15s:  %s " % (

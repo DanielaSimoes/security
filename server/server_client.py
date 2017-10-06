@@ -1,5 +1,5 @@
 import logging
-from .log import *
+from log import *
 import json
 import sys
 
@@ -38,7 +38,7 @@ class Client:
                 (self, len(self.bufin) + len(data), MAX_BUFSIZE))
             self.bufin = ""
 
-        self.bufin += data
+        self.bufin += str(data)
         reqs = self.bufin.split(TERMINATOR)
         print(reqs)
         self.bufin = reqs[-1]

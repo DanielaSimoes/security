@@ -1,8 +1,9 @@
 import logging
-from .log import *
-from .server_registry import *
-from .server_client import *
+from log import *
+from server_registry import *
+from server_client import *
 import json
+
 
 class ServerActions:
     def __init__(self):
