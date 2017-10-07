@@ -53,6 +53,12 @@ class ServerActions:
             logging.exception("Could not handle request")
 
     def processCreate(self, data, client):
+        """
+        Create a message box for the user in server.
+        :param data: dic with type, uuid, ...
+        :param client: client socket
+        :return: send result to client socket
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         if 'uuid' not in data.keys():
@@ -77,6 +83,12 @@ class ServerActions:
         client.sendResult({"result": me.id})
 
     def processList(self, data, client):
+        """
+        Sent by the client in order to list users with messages box in the server.
+        :param data: dic with type, id (optional uuid), ...
+        :param client: client socket
+        :return: send result to client socket
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         user = 0  # 0 means all users
@@ -92,6 +104,12 @@ class ServerActions:
         client.sendResult({"result": userList})
 
     def processNew(self, data, client):
+        """
+        Sent by the client in order to list all new messages in users' message box.
+        :param data: dic with type, id (uuid), ...
+        :param client: client socket
+        :return: send result (dic with a list with new messages) to client socket
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         user = -1
@@ -108,6 +126,12 @@ class ServerActions:
             {"result": self.registry.userNewMessages(user)})
 
     def processAll(self, data, client):
+        """
+        Sent by the client in order to list all messages in users' message box.
+        :param data: dic with type, id (uuid), ...
+        :param client: client socket
+        :return: send result (dic with a list with received messages and other list with sent messages) to client socket
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         user = -1
@@ -123,6 +147,14 @@ class ServerActions:
         client.sendResult({"result": [self.registry.userAllMessages(user), self.registry.userSentMessages(user)]})
 
     def processSend(self, data, client):
+        """
+        Sent by the client to send a message to other client's message box.
+        :param data: dic with type, src (uuid source), dst (uuid destination),
+        msg (json or base64 encoded): encrypted and signed message to be delivered to the target message box,
+        copy (json or base64 encoded): contains a copy of the message to be stored in the receipt box of the sender (encrypted)...
+        :param client: client socket
+        :return: send result (dic with a list with message id and receipt id) to client socket
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         if not set(data.keys()).issuperset(set({'src', 'dst', 'msg', 'msg'})):
@@ -154,6 +186,12 @@ class ServerActions:
         client.sendResult({"result": response})
 
     def processRecv(self, data, client):
+        """
+        Sent by the client in order to receive a message from a user's message box.
+        :param data: dic with type, id (uuid), message id ...
+        :param client: client socket
+        :return: send result (dic with a list with source uuid and message (base64) to client socket)
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         if not set({'id', 'msg'}).issubset(set(data.keys())):
@@ -183,6 +221,12 @@ class ServerActions:
         client.sendResult({"result": response})
 
     def processReceipt(self, data, client):
+        """
+        Sent by the client after receiving and validating a message from a message box.
+        :param data: dic with type, id (uuid), msg (message id), receipt (signature over clear text message)...
+        :param client: client socket
+        :return: None
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         if not set({'id', 'msg', 'receipt'}).issubset(set(data.keys())):
@@ -202,6 +246,13 @@ class ServerActions:
         self.registry.storeReceipt(fromId, msg, receipt)
 
     def processStatus(self, data, client):
+        """
+        Sent by the client for checking the reception status of a sent message.
+        :param data: dic with type, id (uuid), msg (message id)...
+        :param client: client socket
+        :return: reply with an object containing the sent message and a vector of receipt objects, each containing the
+        receipt data (when it was received by the server) the id of receipt sender and the receipt itself.
+        """
         log(logging.DEBUG, "%s" % json.dumps(data))
 
         if not set({'id', 'msg'}).issubset(set(data.keys())):
