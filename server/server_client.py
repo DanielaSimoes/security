@@ -1,12 +1,13 @@
-import logging
-from log import *
 import json
 import sys
+
+from log import *
 
 TERMINATOR = "\r\n"
 MAX_BUFSIZE = 64 * 1024
 
 sys.tracebacklimit = 30
+
 
 class Client:
     count = 0
@@ -63,5 +64,3 @@ class Client:
             self.socket.close()
         except:
             logging.exception("Client.close(%s)" % self)
-
-

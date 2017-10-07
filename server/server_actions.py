@@ -1,8 +1,4 @@
-import logging
-from log import *
 from server_registry import *
-from server_client import *
-import json
 
 
 class ServerActions:
@@ -259,11 +255,11 @@ class ServerActions:
             log(logging.ERROR, "Badly formated \"status\" message: " +
                 json.dumps(data))
             client.sendResult({"error": "wrong message format"})
-        
+
         fromId = int(data['id'])
         msg = str(data["msg"])
 
-        if(not self.registry.copyExists(fromId, msg)):
+        if (not self.registry.copyExists(fromId, msg)):
             log(logging.ERROR, "Unknown message for \"status\" request: " + json.dumps(data))
             client.sendResult({"error", "wrong parameters"})
             return
