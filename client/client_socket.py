@@ -1,7 +1,8 @@
 import socket
+import json
 
 MSGLEN = 64 * 1024
-
+TERMINATOR = "\r\n"
 
 class ClientSocket:
     def __init__(self, host='127.0.0.1', port=8080):
@@ -19,12 +20,8 @@ class ClientSocket:
         :param msg: message to send
         :return: None
         """
-        totalsent = 0
-        while totalsent < MSGLEN:
-            sent = self.sock.send(msg[totalsent:])
-            if sent == 0:
-                raise RuntimeError("socket connection broken")
-            totalsent = totalsent + sent
+        msg = (json.dumps(msg) + TERMINATOR).encode()
+        self.sock.sendall(msg)
 
     def sck_receive(self):
         """
@@ -33,12 +30,15 @@ class ClientSocket:
         """
         chunks = []
         bytes_recd = 0
+
         while bytes_recd < MSGLEN:
             chunk = self.sock.recv(min(MSGLEN - bytes_recd, 2048))
-            if chunk == '':
-                raise RuntimeError("socket connection broken")
-            chunks.append(chunk)
+            chunks.append(chunk.decode())
+
+            if TERMINATOR in chunk.decode():
+                return json.loads(''.join(chunks))
+
             bytes_recd = bytes_recd + len(chunk)
-        return ''.join(chunks)
+
 
 

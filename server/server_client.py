@@ -15,7 +15,7 @@ class Client:
     def __init__(self, socket, addr):
         self.socket = socket
         self.bufin = ""
-        self.bufout = ""
+        self.bufout = bytearray()
         self.addr = addr
         self.id = None
         self.sa_data = None
@@ -39,9 +39,8 @@ class Client:
                 (self, len(self.bufin) + len(data), MAX_BUFSIZE))
             self.bufin = ""
 
-        self.bufin += str(data)
+        self.bufin += str(data.decode())
         reqs = self.bufin.split(TERMINATOR)
-        print(reqs)
         self.bufin = reqs[-1]
         return reqs[:-1]
 
@@ -49,7 +48,7 @@ class Client:
         """Send an object to this client.
         """
         try:
-            self.bufout += json.dumps(obj) + "\n\n"
+            self.bufout += (json.dumps(obj) + "\r\n").encode()
         except:
             # It should never happen! And not be reported to the client!
             logging.exception("Client.send(%s)" % self)

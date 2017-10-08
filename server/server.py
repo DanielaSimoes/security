@@ -170,20 +170,14 @@ class Server:
                 self.delClient(s)
 
 
-
-
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         PORT = int(sys.argv[1])
 
-    logger = logging.getLogger("security-server")
-    console_handler = logging.StreamHandler()
-    console_formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-    logger.setLevel(logging.DEBUG)
+    logger = logging.basicConfig(filename='server.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s: %(message)s')
 
     serv = None
+
     while True:
         try:
             log(logging.INFO, "Starting Secure IM Server v1.0")

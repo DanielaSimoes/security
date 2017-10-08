@@ -1,4 +1,3 @@
-import json
 from client_socket import ClientSocket
 
 
@@ -17,10 +16,11 @@ class ClientActions(ClientSocket):
         :param uuid: client uuid
         :return: the response of the server
         """
-        msg = {"type": "create", "uuid": uuid }
+        msg = {"type": "create", "uuid": uuid}
         self.sck_send(msg)
+        print("sent!!!")
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
     def list(self, uuid=None):
         """
@@ -31,7 +31,7 @@ class ClientActions(ClientSocket):
         msg = {"type": "list", "uuid": uuid}
         self.sck_send(msg)
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
     def new(self, uuid):
         """
@@ -42,7 +42,7 @@ class ClientActions(ClientSocket):
         msg = {"type": "new", "uuid": uuid}
         self.sck_send(msg)
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
     def all(self, uuid):
         """
@@ -53,7 +53,7 @@ class ClientActions(ClientSocket):
         msg = {"type": "all", "uuid": uuid}
         self.sck_send(msg)
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
     def send(self, source_uuid, destination_uuid, msg):
         """
@@ -63,10 +63,10 @@ class ClientActions(ClientSocket):
         :param msg
         :return: the response of the server
         """
-        msg = {"type": "send", "src": source_uuid, "dst": destination_uuid, "msg": json.dumps(msg), "copy": json.dumps(msg)}
+        msg = {"type": "send", "src": source_uuid, "dst": destination_uuid, "msg": msg, "copy": msg}
         self.sck_send(msg)
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
     def recv(self, uuid, message_id):
         """
@@ -78,7 +78,7 @@ class ClientActions(ClientSocket):
         msg = {"type": "recv", "uuid": uuid, "msg": message_id}
         self.sck_send(msg)
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
     def receipt(self, uuid_msg_box, message_id, signature):
         """
@@ -101,7 +101,9 @@ class ClientActions(ClientSocket):
         msg = {"type": "status", "id": uuid_msg_box, "msg": message_id}
         self.sck_send(msg)
 
-        return json.dumps(self.sck_receive())
+        return self.sck_receive()
 
 if __name__ == '__main__':
     client_actions = ClientActions()
+    tste = client_actions.create(2)
+    print("ok")
