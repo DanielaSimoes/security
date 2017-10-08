@@ -18,7 +18,6 @@ class ClientActions(ClientSocket):
         """
         msg = {"type": "create", "uuid": uuid}
         self.sck_send(msg)
-        print("sent!!!")
 
         return self.sck_receive()
 
@@ -33,13 +32,13 @@ class ClientActions(ClientSocket):
 
         return self.sck_receive()
 
-    def new(self, uuid):
+    def new(self, id):
         """
         Sent by the client in order to list all new messages in users' message box.
-        :param uuid: client uuid
+        :param id: client uuid
         :return: the response of the server
         """
-        msg = {"type": "new", "uuid": uuid}
+        msg = {"type": "new", "id": id}
         self.sck_send(msg)
 
         return self.sck_receive()
@@ -50,7 +49,7 @@ class ClientActions(ClientSocket):
         :param uuid: client uuid
         :return: the response of the server
         """
-        msg = {"type": "all", "uuid": uuid}
+        msg = {"type": "all", "id": uuid}
         self.sck_send(msg)
 
         return self.sck_receive()
@@ -75,7 +74,7 @@ class ClientActions(ClientSocket):
         :param uuid: client uuid
         :return: the response of the server
         """
-        msg = {"type": "recv", "uuid": uuid, "msg": message_id}
+        msg = {"type": "recv", "id": uuid, "msg": message_id}
         self.sck_send(msg)
 
         return self.sck_receive()
@@ -102,8 +101,3 @@ class ClientActions(ClientSocket):
         self.sck_send(msg)
 
         return self.sck_receive()
-
-if __name__ == '__main__':
-    client_actions = ClientActions()
-    tste = client_actions.create(2)
-    print("ok")

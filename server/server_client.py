@@ -48,6 +48,9 @@ class Client:
         """Send an object to this client.
         """
         try:
+            if isinstance(obj, set):
+                obj = list(obj)
+
             self.bufout += (json.dumps(obj) + "\r\n").encode()
         except:
             # It should never happen! And not be reported to the client!

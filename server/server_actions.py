@@ -1,4 +1,5 @@
 from server_registry import *
+import shutil
 
 
 class ServerActions:
@@ -12,7 +13,9 @@ class ServerActions:
             'recv': self.processRecv,
             'create': self.processCreate,
             'receipt': self.processReceipt,
-            'status': self.processStatus
+            'status': self.processStatus,
+            # only for dev
+            'delete_all': self.delete_all
         }
 
         self.registry = ServerRegistry()
@@ -70,7 +73,7 @@ class ServerActions:
             client.sendResult({"error": "wrong message format"})
             return
 
-        if self.registry.userExists(uuid):
+        if self.registry.userExists_uuid(uuid):
             log(logging.ERROR, "User already exists: " + json.dumps(data))
             client.sendResult({"error": "uuid already exists"})
             return
@@ -266,3 +269,14 @@ class ServerActions:
 
         response = self.registry.getReceipts(fromId, msg)
         client.sendResult({"result": response})
+
+    def delete_all(self, data, client):
+        """
+        REMOVE MEE! ONLY FOR DEV!!
+        :param data:
+        :param client:
+        :return:
+        """
+        self.registry.users = {}
+        shutil.rmtree('mboxes', ignore_errors=True)
+        shutil.rmtree('receipts', ignore_errors=True)

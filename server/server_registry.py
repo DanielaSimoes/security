@@ -87,6 +87,13 @@ class ServerRegistry:
     def userExists(self, uid):
         return self.getUser(uid) is not None
 
+    def userExists_uuid(self, uuid):
+        for user in self.users.items():
+            if user[1]["description"]["uuid"] == uuid:
+                return True
+        return False
+
+
     def getUser(self, uid):
         if isinstance(uid, int):
             if uid in self.users.keys():
@@ -114,7 +121,7 @@ class ServerRegistry:
 
         for path in [self.userMessageBox(uid), self.userReceiptBox(uid)]:
             try:
-                os.mkdir(path)
+                os.makedirs(path)
             except:
                 logging.exception("Cannot create directory " + path)
                 sys.exit(1)

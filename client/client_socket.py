@@ -4,6 +4,7 @@ import json
 MSGLEN = 64 * 1024
 TERMINATOR = "\r\n"
 
+
 class ClientSocket:
     def __init__(self, host='127.0.0.1', port=8080):
         """
