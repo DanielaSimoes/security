@@ -101,3 +101,9 @@ class ClientActions(ClientSocket):
         self.sck_send(msg)
 
         return self.sck_receive()
+
+    def get_server_id(self, uuid):
+        msg = {"type": "exists", "uuid": uuid}
+        self.sck_send(msg)
+
+        return self.sck_receive()

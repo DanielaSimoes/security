@@ -14,6 +14,7 @@ class ServerActions:
             'create': self.processCreate,
             'receipt': self.processReceipt,
             'status': self.processStatus,
+            'exists': self.processExists,
             # only for dev
             'delete_all': self.delete_all
         }
@@ -50,6 +51,14 @@ class ServerActions:
 
         except Exception as e:
             logging.exception("Could not handle request")
+
+
+    def processExists(self, data, client):
+        if self.registry.userExists_uuid(data["uuid"]):
+            for i in range(1,len(self.registry.users)+1):
+                if self.registry.users[i]["description"]["uuid"] == data["uuid"]:
+                    client.sendResult({"result": self.registry.users[i]["id"]})
+                    break
 
     def processCreate(self, data, client):
         """
