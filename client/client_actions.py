@@ -2,13 +2,13 @@ from client_socket import ClientSocket
 
 
 class ClientActions(ClientSocket):
-    def __init__(self, host='127.0.0.1', port=8080):
+    def __init__(self, client_keys, host='127.0.0.1', port=8080):
         """
         Create a client to connect to server socket.
         :param host: server IP
         :param port: server port
         """
-        super().__init__(host, port)
+        super().__init__(client_keys, host, port)
 
     def create(self, uuid):
         """

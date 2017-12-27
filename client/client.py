@@ -1,9 +1,10 @@
 from client_actions import ClientActions
+from cipher_utils import generate_keys
 
-
-class Chat():
+class Client:
     def __init__(self):
-        client = ClientActions()
+        self.client_keys = generate_keys()
+        client = ClientActions(self.client_keys)
 
         account_created = input("Do you already have an account? (y/n)")
 
@@ -49,4 +50,4 @@ class Chat():
 
 
 if __name__ == '__main__':
-    chat = Chat()
+    chat = Client()
