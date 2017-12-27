@@ -1,10 +1,10 @@
 from client_actions import ClientActions
 from cipher_utils import generate_keys
 
+
 class Client:
     def __init__(self):
-        self.client_keys = generate_keys()
-        client = ClientActions(self.client_keys)
+        client = ClientActions()
 
         account_created = input("Do you already have an account? (y/n)")
 
