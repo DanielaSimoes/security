@@ -1,3 +1,4 @@
+client/tests/.cache/v/cache
 *.pyc
 *.xml
 .idea

@@ -1,54 +1,39 @@
 from diffiehellman.diffiehellman import DiffieHellman
 from cryptography.hazmat.primitives.asymmetric import padding as _aspaadding
-from cryptography.hazmat.primitives.asymmetric import rsa
+from hashlib import sha256
+from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from hashlib import sha256
-from cryptography.hazmat.primitives import hashes, hmac
-import os
 import pickle
+import os
 import base64
-import json
-import random
 
-SERVER_PUB_KEY = os.path.dirname(os.path.abspath(__file__)) + "/server_public_key.pem"
+
+SERVER_PUB_KEY = os.path.dirname(os.path.abspath(__file__)) + "/utils/server_public_key.pem"
+SERVER_PRIV_KEY = os.path.dirname(os.path.abspath(__file__)) + "/utils/server_private_key.pem"
 RANDOM_ENTROPY_GENERATOR_SIZE = 32
 
 
-class ClientCipher:
+class ServerCipher:
 
     def __init__(self):
-        # store client app keys
-        self.client_app_keys = self.generate_keys()
-
         # load server pub. key
         self.server_pub_key = serialization.load_pem_public_key(open(SERVER_PUB_KEY, "rb").read(),
                                                                 backend=default_backend())
-
+        # load server priv. key
+        self.server_priv_key = serialization.load_pem_private_key(open(SERVER_PRIV_KEY, "rb").read(),
+                                                                  password=None,
+                                                                  backend=default_backend())
         # Diffie Hellman
-        self.client_dh = None
-
-        # save session key
+        self.server_dh = None
+        
+        # session key
         self.session_key = None
 
-        # warrant nounces
-        self.warrant_nounces = {}
-
-        # how many requests were made to the server
-        self.request_to_server = 1
-
-    def generate_keys(self):
-        private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-
-        public_key = private_key.public_key()
-
-        return private_key, public_key
+        # client public key
+        self.client_public_key = None
 
     """
     ASYMMETRIC CIPHER
@@ -184,66 +169,16 @@ class ClientCipher:
     KEY DERIVATION FUNCTION GIVEN THE MASTER KEY
     """
 
-    def key_derivation(self, masterkey, salt=os.urandom(32), iterations=100000):
+    def key_derivation(self, masterkey, salt=os.urandom(32)):
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA512(),
             length=32,
             salt=salt,
-            iterations=iterations,
+            iterations=100000,
             backend=default_backend()
         )
 
         return kdf.derive(masterkey), salt
-
-    """
-    SECURE LAYER ENCAPSULATION
-    """
-    def secure_layer_crypt(self, msg: bytes):
-        # generate a nounce that will be a warrant of the message
-        # the nounce will be stored with the respective session key iteration
-        # after retrieved it will be deleted and then the message exchanged between
-        # the server and the client will be never deciphered again
-        nounce = sha256(msg + os.urandom(32)).hexdigest().encode()
-        key, salt = self.key_derivation(self.session_key, iterations=self.request_to_server)
-
-        self.warrant_nounces[nounce] = {"iterations": self.request_to_server,
-                                        "salt": salt}
-
-        ciphered_msg = self.hybrid_cipher(msg, self.server_pub_key,
-                                          ks=key,
-                                          cipher_key=False).decode()
-
-        return_message = {
-            "sec_data": ciphered_msg.decode(),
-            "nounce": nounce,
-            "nounce_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0], nounce)).decode(),
-            "salt": base64.b64encode(salt).decode()
-        }
-
-        self.request_to_server += 1
-
-        # sign using the CC the message
-
-        # dump the return message
-        pickle_dumps = pickle.dumps(return_message)
-
-        return base64.b64encode(pickle_dumps)
-
-    def secure_layer_decrypt(self, msg: bytes):
-        msg = pickle.loads(base64.b64decode(msg))
-        nounce = msg["nounce"]
-        nounce_signature = base64.b64decode(msg["nounce_signature"])
-        salt = msg["salt"]
-
-        # verify nounce
-        self.asym_validate_sign(nounce, nounce_signature, self.server_pub_key)
-
-        if nounce in self.warrant_nounces:
-
-        else:
-            print("Something went wrong.")
-            pass
-
 
     """
     CLIENT SERVER SESSION KEY NEGOTIATION
@@ -282,58 +217,56 @@ class ClientCipher:
 
         Then, there is a secure channel between the server and the client.
 
-        :param val: value sent by the server
-        :param phase: 1, 2, 3 or 4
-        :return: value to send to the server
+
+        :param phase: negotiation phase
+        :param val: value sent by the client
+        :return: value to send to the client
         """
-        if phase == 1:
-            # client generate DH private and public key
-            self.client_dh = DiffieHellman(key_length=256)
-            self.client_dh.generate_public_key()
+        if phase == 2:
+            # server generate DH private and public key
+            self.server_dh = DiffieHellman(key_length=256)
+            self.server_dh.generate_public_key()
+    
+            # decipher the received DH value
+            client_dh_pub = self.hybrid_decipher(val["data"], self.server_priv_key)
 
-            # cipher DH public key with server pub. key
-            # cipher the client DH public key
-            client_dh_ciphered = self.hybrid_cipher(self.client_dh.public_key, self.server_pub_key)
-
-            # cipher the client public key
-
-            pem = self.client_app_keys[1].public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-
-            client_public_key_ciphered = self.hybrid_cipher(pem, self.server_pub_key)
-
-            return {
-                "data": client_dh_ciphered.decode(),
-                "data_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0],
-                                                                  client_dh_ciphered)).decode(),
-                "public_key": client_public_key_ciphered.decode(),
-                "public_key_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0],
-                                                                        client_public_key_ciphered)).decode(),
-                "phase": 2,
-                "cipher": "AES&RSA"
-            }
-        elif phase == 3:
-            # validate the DH received value
+            # decipher client public key PEM format
+            client_public_key_pem = self.hybrid_decipher(val["public_key"], self.server_priv_key)
+    
+            # load the client public key
+            self.client_public_key = serialization.load_pem_public_key(client_public_key_pem, backend=default_backend())
+    
+            # validate signed data [data = dh value]
             self.asym_validate_sign(val["data"].encode(),
                                     base64.b64decode(val["data_signature"].encode()),
-                                    self.server_pub_key)
+                                    self.client_public_key)
+    
+            # validate signature of client public key
+            self.asym_validate_sign(val["public_key"].encode(),
+                                    base64.b64decode(val["public_key_signature"].encode()),
+                                    self.client_public_key)
+    
+            # cipher the server DH public key with the client public key
+            server_dh_ciphered = self.hybrid_cipher(self.server_dh.public_key, self.client_public_key)
 
-            # decipher the received DH value
-            server_dh_pub = self.hybrid_decipher(val["data"], self.client_app_keys[0])
-
-            # generate shared secret (client session key)
-            self.client_dh.generate_shared_secret(server_dh_pub)
-
-            # save the session key
-            self.session_key, salt = self.key_derivation(str(self.client_dh.shared_secret).encode())
-
-            salt_ciphered = self.hybrid_cipher(salt, self.server_pub_key)
+            # generate the DH shared secret (client session key)
+            self.server_dh.generate_shared_secret(client_dh_pub)
 
             return {
-                "phase": 4,
-                "data": salt_ciphered.decode(),
-                "data_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0],
-                                                                  salt_ciphered)).decode()
-            }
+                    "data": server_dh_ciphered.decode(),
+                    "data_signature": base64.b64encode(self.asym_sign(self.server_priv_key,
+                                                                      server_dh_ciphered)).decode(),
+                    "phase": 3,
+                    "cipher": "AES&RSA"
+                }
+        elif phase == 4:
+            # validate signature of the received salt
+            self.asym_validate_sign(val["data"].encode(),
+                                    base64.b64decode(val["data_signature"].encode()),
+                                    self.client_public_key)
+
+            # decipher the salt for PBKDF2
+            pbkdf2_salt = self.hybrid_decipher(val["data"], self.server_priv_key)
+
+            # save the session key
+            self.session_key, salt = self.key_derivation(str(self.server_dh.shared_secret).encode(), pbkdf2_salt)

@@ -1,6 +1,7 @@
 import json
 import sys
 
+from server_cipher import ServerCipher
 from log import *
 
 TERMINATOR = "\r\n"
@@ -19,6 +20,7 @@ class Client:
         self.addr = addr
         self.id = None
         self.sa_data = None
+        self.server_cipher = ServerCipher()
 
     def __str__(self):
         """ Converts object into string.
@@ -42,16 +44,23 @@ class Client:
         self.bufin += str(data.decode())
         reqs = self.bufin.split(TERMINATOR)
         self.bufin = reqs[-1]
+
         return reqs[:-1]
 
-    def sendResult(self, obj):
+    def sendResult(self, obj, cipher=True):
         """Send an object to this client.
         """
         try:
             if isinstance(obj, set):
                 obj = list(obj)
 
-            self.bufout += (json.dumps(obj) + "\r\n").encode()
+            to_send = (json.dumps(obj) + "\r\n").encode()
+
+            if cipher and self.server_cipher.session_key is not None:
+                # cipher to_send
+                pass
+
+            self.bufout += to_send
         except:
             # It should never happen! And not be reported to the client!
             logging.exception("Client.send(%s)" % self)

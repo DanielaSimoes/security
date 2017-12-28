@@ -93,7 +93,6 @@ class ServerRegistry:
                 return True
         return False
 
-
     def getUser(self, uid):
         if isinstance(uid, int):
             if uid in self.users.keys():

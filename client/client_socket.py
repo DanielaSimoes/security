@@ -1,7 +1,6 @@
 import socket
 import json
 from client_cipher import ClientCipher
-from diffiehellman.diffiehellman import DiffieHellman
 
 
 MSGLEN = 64 * 1024
@@ -23,18 +22,42 @@ class ClientSocket:
         self.sock.connect((host, port))
 
         # init bootstrap
-        dh_pub = self.client_cipher.negotiate_bootstrap(phase=1)
+        self.channel_bootstrap()
 
-        print("ok")
+    def channel_bootstrap(self):
+        # phase 1
+        result = self.client_cipher.negotiate_session_key(phase=1)
 
+        # send to the server
+        msg = {"type": "session_key", "msg": result}
+        self.sck_send(msg, cipher=False)
 
-    def sck_send(self, msg):
+        # wait for response
+        response = self.sck_receive()
+
+        # phase 2
+        result = self.client_cipher.negotiate_session_key(phase=response["result"]["phase"], val=response["result"])
+        msg = {"type": "session_key", "msg": result}
+        self.sck_send(msg, cipher=False)
+
+        # wait for response
+        response = self.sck_receive()
+
+    def sck_send(self, msg, cipher=True):
         """
         https://docs.python.org/2/howto/sockets.html
         :param msg: message to send
         :return: None
         """
-        msg = (json.dumps(msg) + TERMINATOR).encode()
+        msg = json.dumps(msg)
+
+        if cipher and self.client_cipher.session_key is not None:
+            msg = self.client_cipher.hybrid_cipher(msg, self.client_cipher.server_pub_key,
+                                                   ks=self.client_cipher.session_key,
+                                                   cipher_key=False).decode()
+
+        msg = (msg + TERMINATOR).encode()
+
         self.sock.sendall(msg)
 
     def sck_receive(self):
@@ -53,14 +76,3 @@ class ClientSocket:
                 return json.loads(''.join(chunks))
 
             bytes_recd = bytes_recd + len(chunk)
-
-    def bootstrap(self):
-        client_dh = DiffieHellman()
-        client_dh.generate_public_key()  # automatically generates private key
-
-        alice.generate_shared_secret(bob.public_key, echo_return_key=True)
-        bob.generate_shared_secret(alice.public_key, echo_return_key=True)
-
-
-
-

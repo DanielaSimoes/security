@@ -4,7 +4,6 @@ import shutil
 
 class ServerActions:
     def __init__(self):
-
         self.messageTypes = {
             'all': self.processAll,
             'list': self.processList,
@@ -15,6 +14,7 @@ class ServerActions:
             'receipt': self.processReceipt,
             'status': self.processStatus,
             'exists': self.processExists,
+            'session_key': self.processSessionKey,
             # only for dev
             'delete_all': self.delete_all
         }
@@ -52,10 +52,22 @@ class ServerActions:
         except Exception as e:
             logging.exception("Could not handle request")
 
+    def processSessionKey(self, data, client):
+        if "phase" not in data["msg"] or not isinstance(data["msg"]["phase"], int):
+            log(logging.ERROR, "The process session key must have a phase number.")
+            client.sendResult({"error": "unknown request"})
+
+        if data["msg"]["phase"] == 2 or data["msg"]["phase"] == 4:
+            result = client.server_cipher.negotiate_session_key(data["msg"]["phase"], data["msg"])
+            # we have the shared secret but the client don't, so force no cipher response
+            client.sendResult({"result": result}, cipher=False)
+        else:
+            log(logging.ERROR, "Invalid message phase: " + str(data["msg"]['phase']))
+            client.sendResult({"error": "unknown request"})
 
     def processExists(self, data, client):
         if self.registry.userExists_uuid(data["uuid"]):
-            for i in range(1,len(self.registry.users)+1):
+            for i in range(1, len(self.registry.users) + 1):
                 if self.registry.users[i]["description"]["uuid"] == data["uuid"]:
                     client.sendResult({"result": self.registry.users[i]["id"]})
                     break

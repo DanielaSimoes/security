@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd ../server
+cd ../../server
 rm -rf mboxes
 rm -rf receipts
 #echo "" > server.log

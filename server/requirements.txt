@@ -1,2 +1,2 @@
 diffiehellman
-pycrypto
+cryptography
