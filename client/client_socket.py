@@ -52,9 +52,7 @@ class ClientSocket:
         msg = json.dumps(msg)
 
         if cipher and self.client_cipher.session_key is not None:
-            msg = self.client_cipher.hybrid_cipher(msg, self.client_cipher.server_pub_key,
-                                                   ks=self.client_cipher.session_key,
-                                                   cipher_key=False).decode()
+            msg = self.client_cipher.secure_layer_crypt(msg).decode()
 
         msg = (msg + TERMINATOR).encode()
 
@@ -73,6 +71,13 @@ class ClientSocket:
             chunks.append(chunk.decode())
 
             if TERMINATOR in chunk.decode():
-                return json.loads(''.join(chunks))
+                chunks = ''.join(''.join(chunks).split(TERMINATOR)[:-1])
+
+                try:
+                    raw_data = json.loads(chunks)
+                except json.JSONDecodeError:
+                    raw_data = json.loads(self.client_cipher.secure_layer_decrypt(chunks.encode()))
+
+                return raw_data
 
             bytes_recd = bytes_recd + len(chunk)

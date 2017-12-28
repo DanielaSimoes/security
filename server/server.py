@@ -113,12 +113,6 @@ class Server:
                 reqs = client.parseReqs(data)
 
                 for req in reqs:
-
-                    if self.clients[s].server_cipher.session_key is not None:
-                        req = self.clients[s].server_cipher.hybrid_decipher(req.encode(),
-                                                                      self.clients[s].server_cipher.server_priv_key,
-                                                                      self.clients[s].server_cipher.session_key)
-
                     self.server_actions.handleRequest(s, req, self.clients[s])
             else:
                 self.delClient(s)

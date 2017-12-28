@@ -203,7 +203,7 @@ class ClientCipher:
         # the nounce will be stored with the respective session key iteration
         # after retrieved it will be deleted and then the message exchanged between
         # the server and the client will be never deciphered again
-        nounce = sha256(msg + os.urandom(32)).hexdigest().encode()
+        nounce = sha256(json.dumps(msg).encode() + os.urandom(32)).hexdigest().encode()
         key, salt = self.key_derivation(self.session_key, iterations=self.request_to_server)
 
         self.warrant_nounces[nounce] = {"iterations": self.request_to_server,
@@ -214,7 +214,7 @@ class ClientCipher:
                                           cipher_key=False).decode()
 
         return_message = {
-            "sec_data": ciphered_msg.decode(),
+            "sec_data": ciphered_msg,
             "nounce": nounce,
             "nounce_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0], nounce)).decode(),
             "salt": base64.b64encode(salt).decode()
@@ -231,19 +231,29 @@ class ClientCipher:
 
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
+        sec_data = msg["sec_data"]
         nounce = msg["nounce"]
         nounce_signature = base64.b64decode(msg["nounce_signature"])
-        salt = msg["salt"]
 
         # verify nounce
         self.asym_validate_sign(nounce, nounce_signature, self.server_pub_key)
 
-        if nounce in self.warrant_nounces:
+        if nounce not in self.warrant_nounces:
+            print("Something went wrong with the nounce in the secure layer decrypt.")
+            exit(1)
 
-        else:
-            print("Something went wrong.")
-            pass
+        # the nounce warrant allow us to retrieve the iterations and the salt used to derive the key
+        iterations = self.warrant_nounces[nounce]["iterations"]
+        salt = self.warrant_nounces[nounce]["salt"]
 
+        # now it can be deleted
+        del self.warrant_nounces[nounce]
+
+        key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
+
+        raw_msg = self.hybrid_decipher(sec_data, self.client_app_keys[0], ks=key).decode()
+
+        return raw_msg
 
     """
     CLIENT SERVER SESSION KEY NEGOTIATION

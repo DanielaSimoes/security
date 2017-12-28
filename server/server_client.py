@@ -47,20 +47,24 @@ class Client:
 
         return reqs[:-1]
 
-    def sendResult(self, obj, cipher=True):
+    def sendResult(self, obj, sec_data=None):
         """Send an object to this client.
         """
         try:
             if isinstance(obj, set):
                 obj = list(obj)
 
-            to_send = (json.dumps(obj) + "\r\n").encode()
+            to_send = ""
 
-            if cipher and self.server_cipher.session_key is not None:
+            if sec_data is not None and self.server_cipher.session_key is not None:
                 # cipher to_send
-                pass
+                to_send += self.server_cipher.secure_layer_crypt(json.dumps(obj).encode(), sec_data).decode()
+            else:
+                to_send += json.dumps(obj)
 
-            self.bufout += to_send
+            to_send += "\r\n"
+
+            self.bufout += to_send.encode()
         except:
             # It should never happen! And not be reported to the client!
             logging.exception("Client.send(%s)" % self)
