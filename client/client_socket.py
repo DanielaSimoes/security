@@ -35,7 +35,7 @@ class ClientSocket:
         # wait for response
         response = self.sck_receive()
 
-        # phase 2
+        # phase 3
         result = self.client_cipher.negotiate_session_key(phase=response["result"]["phase"], val=response["result"])
         msg = {"type": "session_key", "msg": result}
         self.sck_send(msg, cipher=False)

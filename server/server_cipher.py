@@ -1,7 +1,6 @@
 from diffiehellman.diffiehellman import DiffieHellman
 from cryptography.hazmat.primitives.asymmetric import padding as _aspaadding
-from hashlib import sha256
-from cryptography.hazmat.primitives import hashes, hmac
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -94,30 +93,16 @@ class ServerCipher:
         encryptor = cipher.encryptor()
         ciphered_obj = encryptor.update(pickle_dumps) + encryptor.finalize()
 
-        # generate hmac
-        key = sha256(ks).hexdigest().encode()
+        return iv, ciphered_obj
 
-        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
-        h.update(ciphered_obj)
-        hmac_data = h.finalize()
-
-        return iv, hmac_data, ciphered_obj
-
-    def sym_decipher(self, obj, ks, iv, hmac_data):
+    def sym_decipher(self, obj, ks, iv):
         """
 
         :param obj:
         :param ks:
         :param iv:
-        :param hmac_data:
         :return:
         """
-        key = sha256(ks).hexdigest().encode()
-
-        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
-        h.update(obj)
-        h.verify(hmac_data)
-
         cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
         decryptor = cipher.decryptor()
         deciphered_data = decryptor.update(obj) + decryptor.finalize()
@@ -137,34 +122,30 @@ class ServerCipher:
         # decipher using rsa private key
         iv = self.asym_decipher(private_key, base64.b64decode(obj["iv"]))
 
-        # get the hmac data
-        hmac_data = base64.b64decode(obj["hmac"])
-
         # decipher using symmetric AES CTR
-        return self.sym_decipher(base64.b64decode(obj["obj"]), ks, iv, hmac_data)
+        return self.sym_decipher(base64.b64decode(obj["obj"]), ks, iv)
 
     def hybrid_cipher(self, obj, public_key, ks=os.urandom(32), cipher_key=True):
         # cipher using symmetric cipher AES CTR
         # returns the ciphered obj with the IV
-        iv, hmac_data, ciphered_obj = self.sym_cipher(obj, ks)
+        iv, ciphered_obj = self.sym_cipher(obj, ks)
 
         # iv ciphered with the public key
         iv_encrypted = self.asym_cipher(public_key, iv)
 
         # key ciphered with the public_key
         if cipher_key:
+            # send ks to the server
             key_encrypted = self.asym_cipher(public_key, ks)
 
             pickle_dumps = pickle.dumps([{"obj": base64.b64encode(ciphered_obj).decode(),
                                           "iv": base64.b64encode(iv_encrypted).decode(),
-                                          "hmac": base64.b64encode(hmac_data).decode(),
                                           "key": base64.b64encode(key_encrypted).decode()},
                                          os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
             return base64.b64encode(pickle_dumps)
         else:
             pickle_dumps = pickle.dumps([{"obj": base64.b64encode(ciphered_obj).decode(),
-                                         "iv": base64.b64encode(iv_encrypted).decode(),
-                                          "hmac": base64.b64encode(hmac_data).decode()},
+                                         "iv": base64.b64encode(iv_encrypted).decode()},
                                          os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
             return base64.b64encode(pickle_dumps)
 
@@ -195,11 +176,12 @@ class ServerCipher:
 
         ciphered_msg = self.hybrid_cipher(msg, self.client_public_key,
                                           ks=key,
-                                          cipher_key=False).decode()
+                                          cipher_key=False)
 
         return_message = {
-            "sec_data": ciphered_msg,
-            "nounce": sec_data["nounce"],
+            "sec_data": ciphered_msg.decode(),
+            "sec_data_signature": base64.b64encode(self.asym_sign(self.server_priv_key, ciphered_msg)).decode(),
+            "nounce": base64.b64encode(sec_data["nounce"]).decode(),
             "nounce_signature": base64.b64encode(self.asym_sign(self.server_priv_key, sec_data["nounce"])).decode()
         }
 
@@ -211,12 +193,22 @@ class ServerCipher:
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
         sec_data = msg["sec_data"].encode()
-        nounce = msg["nounce"]
+        sec_data_signature = base64.b64decode(msg["sec_data_signature"].encode())
+
         salt = base64.b64decode(msg["salt"].encode())
-        nounce_signature = base64.b64decode(msg["nounce_signature"])
+        salt_signature = base64.b64decode(msg["salt_signature"].encode())
+
+        nounce = base64.b64decode(msg["nounce"].encode())
+        nounce_signature = base64.b64decode(msg["nounce_signature"].encode())
 
         # verify nounce
         self.asym_validate_sign(nounce, nounce_signature, self.client_public_key)
+
+        # verify sec_data
+        self.asym_validate_sign(sec_data, sec_data_signature, self.client_public_key)
+
+        # verify salt
+        self.asym_validate_sign(salt, salt_signature, self.client_public_key)
 
         iterations = self.requests_received
         self.requests_received += 1
