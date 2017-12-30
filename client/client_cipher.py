@@ -267,7 +267,7 @@ class ClientCipher:
         the client public key and loads it into memory.
         Then, using the client public key, validates the signature made for the DH public value and public key received.
         Using the received client public key, the server will make a hybrid cipher (AES and RSA) of the DH server
-        generated values. After the cipher, the server will sign with the server private key the data ciphered.
+        generated public key. After the cipher, the server will sign with the server private key the data ciphered.
 
         Phase 3: [CLIENT]: using the stored server public key the client will validate the signature received. After
         that using the client private key, the client will decipher the DH public value received from the server. Then
