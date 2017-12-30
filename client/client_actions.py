@@ -70,13 +70,14 @@ class ClientActions(ClientSocket):
 
         return self.sck_receive()
 
-    def send(self, source_uuid, destination_uuid, msg, cc):
+    def send(self, source_uuid, destination_uuid, msg, cc, public_key):
         """
         Sent by the client to send a message to other client's message box.
         :param destination_uuid
         :param source_uuid
         :param msg
         :param cc: the CC object (CitizenCard)
+        :param public_key: user public key
         :return: the response of the server
         """
         peer_public_details = self.get_user_public_details(destination_uuid)
@@ -90,9 +91,14 @@ class ClientActions(ClientSocket):
             "signature": base64.b64encode(cc.sign(msg.encode())).decode()
         })
 
-        msg = self.client_cipher.hybrid_cipher(msg.encode(), peer_public_key).decode()
+        # only the destination user can see the message
+        dst_msg = self.client_cipher.hybrid_cipher(msg.encode(), peer_public_key).decode()
 
-        msg = {"type": "send", "src": source_uuid, "dst": destination_uuid, "msg": msg, "copy": msg}
+        # only the user that sent (receipts box) can see the message
+        copy_msg = self.client_cipher.hybrid_cipher(msg.encode(), public_key).decode()
+
+        msg = {"type": "send", "src": source_uuid, "dst": destination_uuid, "msg": dst_msg, "copy": copy_msg}
+
         self.sck_send(msg)
 
         return self.sck_receive()
@@ -137,17 +143,29 @@ class ClientActions(ClientSocket):
         msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature}
         self.sck_send(msg)
 
-    def status(self, uuid_msg_box, message_id):
+    def status(self, uuid_msg_box, message_id, private_key, cc):
         """
         Sent by the client for checking the reception status of a sent message.
         :param uuid_msg_box
         :param message_id
+        :param private_key: user private key
+        :param cc: the CC object (CitizenCard)
         :return: None
         """
         msg = {"type": "status", "id": uuid_msg_box, "msg": message_id}
+
         self.sck_send(msg)
 
-        return self.sck_receive()
+        status = self.sck_receive()
+
+        status["result"]["msg"] = json.loads(self.client_cipher.hybrid_decipher(status["result"]["msg"].encode(),
+                                                                                private_key))
+
+        CitizenCard.verify(status["result"]["msg"]["message"].encode(),
+                           base64.b64decode(status["result"]["msg"]["signature"]),
+                           cc.get_certificate_pem())
+
+        return status
 
     def get_user_public_details(self, user_id):
         msg = {"type": "user_public_details", "id": user_id}

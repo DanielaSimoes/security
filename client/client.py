@@ -101,7 +101,8 @@ class Client:
         print("1 - Send a message")
         print("2 - Verify new messages")
         print("3 - List peers")
-        print("4 - Exit")
+        print("4 - List sent messages")
+        print("5 - Exit")
         option = int(input("Option: "))
 
         print("-------------------------")
@@ -115,7 +116,7 @@ class Client:
                 print("OK")
                 message = str(input("Write your message:"))
 
-                rsp = self.client.send(self.server_id, server_id_peer, message, self.cc)
+                rsp = self.client.send(self.server_id, server_id_peer, message, self.cc, self.public_key)
                 if "result" in rsp and len(rsp["result"]) > 0:
                     print("Message sent!")
                 else:
@@ -139,6 +140,22 @@ class Client:
             print("Peers you may send a message:\n")
             for peer in self.client.list()["result"]:
                 print("Peer id: " + str(peer["uuid"]))
+        elif option == 4:
+            sent_messages = self.client.all(self.server_id)["result"][1]
+
+            print("Select which message do you want to see the receipt: ")
+
+            for i in range(0, len(sent_messages)):
+                print("%d - %s" % (i, sent_messages[i]))
+
+            msg_id = int(input("Type: "))
+
+            if 0 <= msg_id < len(sent_messages):
+                msg_id = sent_messages[msg_id]
+                status = self.client.status(self.server_id, msg_id, self.private_key, self.cc)
+
+                print("Message: %s" % status["result"]["msg"]["message"])
+                print("Receipt: %s" % ("YES" if len(status["result"]["receipts"]) > 0 else "NO"))
         else:
             return False
 
