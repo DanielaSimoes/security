@@ -1,5 +1,7 @@
 from server_registry import *
+from server_cipher import ServerCipher
 import shutil
+import base64
 
 
 class ServerActions:
@@ -14,11 +16,13 @@ class ServerActions:
             'receipt': self.processReceipt,
             'status': self.processStatus,
             'exists': self.processExists,
+            'user_public_details': self.processUserPublicDetails,
             'session_key': self.processSessionKey,
             # only for dev
             'delete_all': self.delete_all
         }
 
+        self.server_cipher = ServerCipher()
         self.registry = ServerRegistry()
 
     def handleRequest(self, s, request, client):
@@ -75,7 +79,15 @@ class ServerActions:
             for i in range(1, len(self.registry.users) + 1):
                 if self.registry.users[i]["description"]["uuid"] == data["uuid"]:
                     client.sendResult({"result": self.registry.users[i]["id"]}, sec_data)
-                    break
+                    return
+        client.sendResult({"result": None}, sec_data)
+
+    def processUserPublicDetails(self, data, client, sec_data):
+        for i in range(1, len(self.registry.users) + 1):
+            if self.registry.users[i]["id"] == data["id"]:
+                client.sendResult({"result": self.registry.users[i]["description"]}, sec_data)
+                return
+        client.sendResult({"result": None})
 
     def processCreate(self, data, client, sec_data):
         """
@@ -94,16 +106,33 @@ class ServerActions:
             return
 
         uuid = data['uuid']
-        if not isinstance(uuid, int):
+        if not isinstance(uuid, str):
             log(logging.ERROR, "No valid \"uuid\" field in \"create\" message: " +
                 json.dumps(data))
             client.sendResult({"error": "wrong message format"}, sec_data)
             return
 
+        signature = data["signature"]
+        del data["type"]
+        del data["signature"]
+
+        # validate received certificate
+        chain = []
+        for crl in [f for f in os.listdir("utils/crts") if os.path.isfile(os.path.join("utils/crts", f))]:
+            chain.append(open(os.path.join("utils/crts", crl), "r").read())
+
+        self.server_cipher.cc.validate_chain(chain=chain, pem_certificate=data["cc_public_certificate"].encode())
+
+        # verify received public keys with the public cc key from the certificate
+        self.server_cipher.cc.verify(json.dumps(data).encode(), base64.b64decode(signature.encode()),
+                                     data["cc_public_certificate"].encode())
+
         if self.registry.userExists_uuid(uuid):
             log(logging.ERROR, "User already exists: " + json.dumps(data))
             client.sendResult({"error": "uuid already exists"}, sec_data)
             return
+
+        data["signature"] = signature
 
         me = self.registry.addUser(data)
         client.sendResult({"result": me.id}, sec_data)

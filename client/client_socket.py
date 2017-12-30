@@ -64,20 +64,23 @@ class ClientSocket:
         :return: received piece of message
         """
         chunks = []
-        bytes_recd = 0
 
-        while bytes_recd < MSGLEN:
-            chunk = self.sock.recv(min(MSGLEN - bytes_recd, 2048))
+        while True:
+            chunk = self.sock.recv(MSGLEN)
+
+            if not chunk:
+                break
+
             chunks.append(chunk.decode())
 
             if TERMINATOR in chunk.decode():
-                chunks = ''.join(''.join(chunks).split(TERMINATOR)[:-1])
+                break
 
-                try:
-                    raw_data = json.loads(chunks)
-                except json.JSONDecodeError:
-                    raw_data = json.loads(self.client_cipher.secure_layer_decrypt(chunks.encode()))
+        chunks = ''.join(''.join(chunks).split(TERMINATOR)[:-1])
 
-                return raw_data
+        try:
+            raw_data = json.loads(chunks)
+        except json.JSONDecodeError:
+            raw_data = json.loads(self.client_cipher.secure_layer_decrypt(chunks.encode()))
 
-            bytes_recd = bytes_recd + len(chunk)
+        return raw_data

@@ -114,6 +114,7 @@ class UnitTests(unittest.TestCase):
         del rsp["result"]["receipts"][0]["date"]
         self.assertEqual(rsp, {'result': {'msg': 'Testeee', 'receipts': [{'id': '2', 'receipt': 'signature'}]}})
 
+
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stderr)
     logging.getLogger().setLevel(logging.DEBUG)

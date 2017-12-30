@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import padding as _aspaadding
 import getpass
 from OpenSSL import crypto
 from pem import parse_file
+import hashlib
 
 
 class CitizenCard:
@@ -21,7 +22,7 @@ class CitizenCard:
 
     def __init__(self, pin=None):
         if pin is None:
-            self.pin = getpass.getpass("Signature PIN: ")
+            self.pin = getpass.getpass("Auth PIN (CARTAO DE CIDADAO): ")
         else:
             self.pin = pin
 
@@ -87,7 +88,8 @@ class CitizenCard:
 
         return certs_labels
 
-    def verify(self, message, sign_bytes, x509_pem):
+    @staticmethod
+    def verify(message, sign_bytes, x509_pem):
         cert = x509.load_pem_x509_certificate(x509_pem, default_backend())
         # Extract public key from certificate
         sign_cert_pk = cert.public_key()
@@ -115,7 +117,8 @@ class CitizenCard:
                                        label=None
                                     ))
 
-    def validate_chain(self, chain, pem_certificate, ssl_ca_root_file="./mozilla-ca-bundle.txt"):
+    @staticmethod
+    def validate_chain(chain, pem_certificate, ssl_ca_root_file="./utils/mozilla-ca-bundle.txt"):
         # parse CA roots certificate PEMs to an list
         trusted_certs_pems = parse_file(ssl_ca_root_file)
 
@@ -144,10 +147,14 @@ class CitizenCard:
         store_ctx = crypto.X509StoreContext(store, certificate)
 
         # load CRLs to the store
-        for crl in [f for f in os.listdir("crls") if os.path.isfile(os.path.join("crls", f))]:
-            store.add_crl(crypto.load_crl(crypto.FILETYPE_PEM, open(os.path.join("crls", crl), "r").read()))
+        for crl in [f for f in os.listdir("utils/crls") if os.path.isfile(os.path.join("utils/crls", f))]:
+            store.add_crl(crypto.load_crl(crypto.FILETYPE_PEM, open(os.path.join("utils/crls", crl), "r").read()))
 
         store_ctx.verify_certificate()
+
+    def generate_uuid(self):
+        pem = self.get_certificate_pem()
+        return hashlib.sha224(pem).hexdigest()
 
 
 if __name__ == '__main__':
@@ -166,6 +173,14 @@ if __name__ == '__main__':
 
     # cc.decrypt(data_ciphered)
     x509_chain = [cc.get_certificate_pem(label=label) for label in cc.get_available_certs_labels()]
+
+    for label in cc.get_available_certs_labels():
+        x509_certificate = cc.get_certificate_pem(label=label)
+
+        cert_file = 'utils/crts/%s.pem' % label
+        f = open(cert_file, 'wb')
+        f.write(x509_certificate)
+        f.close()
 
     cc.validate_chain(chain=x509_chain, pem_certificate=x509_pem)
 

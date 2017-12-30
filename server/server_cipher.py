@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import pickle
 import os
 import base64
+from server_cc import CitizenCard
 
 
 SERVER_PUB_KEY = os.path.dirname(os.path.abspath(__file__)) + "/utils/server_public_key.pem"
@@ -36,6 +37,9 @@ class ServerCipher:
 
         # number of requests received
         self.requests_received = 1
+
+        # load cc libraries
+        self.cc = CitizenCard()
 
     """
     ASYMMETRIC CIPHER
