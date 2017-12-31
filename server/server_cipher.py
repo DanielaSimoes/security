@@ -9,6 +9,7 @@ import pickle
 import os
 import base64
 from server_cc import CitizenCard
+import json
 
 
 SERVER_PUB_KEY = os.path.dirname(os.path.abspath(__file__)) + "/utils/server_public_key.pem"
@@ -196,36 +197,30 @@ class ServerCipher:
 
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
-        sec_data = msg["sec_data"].encode()
-        sec_data_signature = base64.b64decode(msg["sec_data_signature"].encode())
 
+        data = msg["data"].encode()
         salt = base64.b64decode(msg["salt"].encode())
-        salt_signature = base64.b64decode(msg["salt_signature"].encode())
-
         nounce = base64.b64decode(msg["nounce"].encode())
-        nounce_signature = base64.b64decode(msg["nounce_signature"].encode())
 
-        # verify nounce
-        self.asym_validate_sign(nounce, nounce_signature, self.client_public_key)
+        signature = base64.b64decode(msg["signature"].encode())
 
-        # verify sec_data
-        self.asym_validate_sign(sec_data, sec_data_signature, self.client_public_key)
+        del msg["signature"]
 
-        # verify salt
-        self.asym_validate_sign(salt, salt_signature, self.client_public_key)
+        # verify signature
+        self.asym_validate_sign(json.dumps(msg).encode(), signature, self.client_public_key)
 
         iterations = self.requests_received
         self.requests_received += 1
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
-        raw_msg = self.hybrid_decipher(sec_data, self.server_priv_key, ks=key)
+        raw_msg = self.hybrid_decipher(data, self.server_priv_key, ks=key)
 
-        sec_data = {"nounce": nounce,
-                    "salt": salt,
-                    "iterations": iterations}
+        data = {"nounce": nounce,
+                "salt": salt,
+                "iterations": iterations}
 
-        return raw_msg, sec_data
+        return raw_msg, data
 
     """
     CLIENT SERVER SESSION KEY NEGOTIATION

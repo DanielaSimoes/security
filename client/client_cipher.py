@@ -196,13 +196,13 @@ class ClientCipher:
                                           cipher_key=False)
 
         return_message = {
-            "sec_data": ciphered_msg.decode(),
-            "sec_data_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0], ciphered_msg)).decode(),
+            "data": ciphered_msg.decode(),
             "nounce": base64.b64encode(nounce).decode(),
-            "nounce_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0], nounce)).decode(),
-            "salt": base64.b64encode(salt).decode(),
-            "salt_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0], salt)).decode(),
+            "salt": base64.b64encode(salt).decode()
         }
+
+        return_message["signature"] = base64.b64encode(self.asym_sign(self.client_app_keys[0],
+                                                                      json.dumps(return_message).encode())).decode()
 
         self.request_to_server += 1
 
