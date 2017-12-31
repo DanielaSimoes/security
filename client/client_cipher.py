@@ -180,7 +180,7 @@ class ClientCipher:
     """
     SECURE LAYER ENCAPSULATION
     """
-    def secure_layer_crypt(self, msg: bytes):
+    def secure_layer_encrypt(self, msg: bytes):
         # generate a nounce that will be a warrant of the message
         # the nounce will be stored with the respective session key iteration
         # after retrieved it will be deleted and then the message exchanged between

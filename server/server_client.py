@@ -58,7 +58,7 @@ class Client:
 
             if sec_data is not None and self.server_cipher.session_key is not None:
                 # cipher to_send
-                to_send += self.server_cipher.secure_layer_crypt(json.dumps(obj).encode(), sec_data).decode()
+                to_send += self.server_cipher.secure_layer_encrypt(json.dumps(obj).encode(), sec_data).decode()
             else:
                 to_send += json.dumps(obj)
 

@@ -52,7 +52,7 @@ class ClientSocket:
         msg = json.dumps(msg)
 
         if cipher and self.client_cipher.session_key is not None:
-            msg = self.client_cipher.secure_layer_crypt(msg).decode()
+            msg = self.client_cipher.secure_layer_encrypt(msg).decode()
 
         msg = (msg + TERMINATOR).encode()
 
