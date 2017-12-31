@@ -199,11 +199,9 @@ class ServerCipher:
         msg = pickle.loads(base64.b64decode(msg))
 
         data = msg["data"].encode()
-        salt = base64.b64decode(msg["salt"].encode())
-        nounce = base64.b64decode(msg["nounce"].encode())
+        sec_data = base64.b64decode(msg["sec_data"])
 
         signature = base64.b64decode(msg["signature"].encode())
-
         del msg["signature"]
 
         # verify signature
@@ -212,9 +210,16 @@ class ServerCipher:
         iterations = self.requests_received
         self.requests_received += 1
 
+        # decipher the sec_data
+        sec_data = pickle.loads(self.asym_decipher(self.server_priv_key, sec_data))
+
+        salt = sec_data["salt"]
+        nounce = sec_data["nounce"]
+        iv = sec_data["iv"]
+
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
-        raw_msg = self.hybrid_decipher(data, self.server_priv_key, ks=key)
+        raw_msg = self.sym_decipher(base64.b64decode(data), key, iv)
 
         data = {"nounce": nounce,
                 "salt": salt,

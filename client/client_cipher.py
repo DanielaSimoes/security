@@ -187,18 +187,29 @@ class ClientCipher:
         # the server and the client will be never deciphered again
         nounce = sha256(json.dumps(msg).encode() + os.urandom(32)).hexdigest().encode()
         key, salt = self.key_derivation(self.session_key, iterations=self.request_to_server)
+        iv = os.urandom(16)
 
+        # saving the iterations ans salt used for the given nounce
         self.warrant_nounces[nounce] = {"iterations": self.request_to_server,
                                         "salt": salt}
 
-        ciphered_msg = self.hybrid_cipher(msg, self.server_pub_key,
-                                          ks=key,
-                                          cipher_key=False)
+        # salt (the salt used to the KDF), nounce (the genuineness warrant), iv (used in the cipher)
+        sec_data = pickle.dumps({
+            "salt": salt,
+            "nounce": nounce,
+            "iv": iv
+        })
 
+        # sec_data ciphered
+        sec_data_ciphered = self.asym_cipher(self.server_pub_key, sec_data)
+
+        # cipher with symmetric cipher the message content
+        iv, ciphered_obj = self.sym_cipher(msg, key, iv=iv)
+
+        # message to be signed and sent to the server
         return_message = {
-            "data": ciphered_msg.decode(),
-            "nounce": base64.b64encode(nounce).decode(),
-            "salt": base64.b64encode(salt).decode()
+            "data": base64.b64encode(ciphered_obj).decode(),
+            "sec_data": base64.b64encode(sec_data_ciphered).decode()
         }
 
         return_message["signature"] = base64.b64encode(self.asym_sign(self.client_app_keys[0],
