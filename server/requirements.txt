@@ -1,2 +1,4 @@
 diffiehellman
 cryptography
+pyOpenSSL
+pem
