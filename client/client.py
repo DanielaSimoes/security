@@ -132,8 +132,16 @@ class Client:
                 if next_option.lower() == "y":
                     for message in messages:
                         message_rcv = self.client.recv(self.server_id, message, self.private_key)
+
+                        # generate receipt for the received message
+                        # the signature of the message received and then encrypted with the peer public key
+                        # for that we need the peer public key
+
+                        self.client.receipt(message_rcv["result"][0], message, message_rcv["result"][1].encode(),
+                                            self.cc)
+
                         print("#####")
-                        print("Message ID: %s" % message_rcv["result"][0])
+                        print("Message from ID: %s" % message_rcv["result"][0])
                         print("Content: %s" % message_rcv["result"][1])
                         print("#####")
         elif option == 3:

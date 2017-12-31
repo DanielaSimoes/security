@@ -132,14 +132,24 @@ class ClientActions(ClientSocket):
 
         return messages
 
-    def receipt(self, uuid_msg_box, message_id, signature):
+    def receipt(self, uuid_msg_box, message_id, signature, cc):
         """
         Sent by the client after receiving and validating a message from a message box.
         :param uuid_msg_box
         :param message_id
         :param signature
+        :param cc
         :return: None
         """
+        # generate receipt for the received message
+        # the signature of the message received and then encrypted with the peer public key
+        peer_public_details = self.get_user_public_details(int(uuid_msg_box))
+        peer_public_key = serialization.load_pem_public_key(peer_public_details["user_public_pem"].encode(),
+                                                            backend=default_backend())
+
+        signature = cc.sign(signature)
+        signature = base64.b64encode(self.client_cipher.hybrid_cipher(signature, peer_public_key)).decode()
+
         msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature}
         self.sck_send(msg)
 
@@ -164,6 +174,14 @@ class ClientActions(ClientSocket):
         CitizenCard.verify(status["result"]["msg"]["message"].encode(),
                            base64.b64decode(status["result"]["msg"]["signature"]),
                            cc.get_certificate_pem())
+
+        for receipt in status["result"]["receipts"]:
+            signature = self.client_cipher.hybrid_decipher(base64.b64decode(receipt["receipt"]), private_key)
+            peer_public_details = self.get_user_public_details(int(receipt["id"]))
+
+            CitizenCard.verify(status["result"]["msg"]["message"].encode(),
+                               signature,
+                               peer_public_details["cc_public_certificate"].encode())
 
         return status
 
