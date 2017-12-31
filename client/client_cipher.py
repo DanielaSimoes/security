@@ -201,7 +201,7 @@ class ClientCipher:
         })
 
         # sec_data ciphered
-        sec_data_ciphered = self.asym_cipher(self.server_pub_key, sec_data)
+        sec_data_ciphered = self.hybrid_cipher(sec_data, self.server_pub_key)
 
         # cipher with symmetric cipher the message content
         iv, ciphered_obj = self.sym_cipher(msg, key, iv=iv)
@@ -227,17 +227,16 @@ class ClientCipher:
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
 
-        sec_data = msg["sec_data"]
-        sec_data_signature = base64.b64decode(msg["sec_data_signature"])
+        signature = base64.b64decode(msg["signature"].encode())
+        del msg["signature"]
 
-        nounce = base64.b64decode(msg["nounce"])
-        nounce_signature = base64.b64decode(msg["nounce_signature"])
+        # verify signature
+        self.asym_validate_sign(json.dumps(msg).encode(), signature, self.server_pub_key)
 
-        # verify nounce
-        self.asym_validate_sign(nounce, nounce_signature, self.server_pub_key)
+        # get sec_data content
+        sec_data = pickle.loads(self.hybrid_decipher(base64.b64decode(msg["sec_data"]), self.client_app_keys[0]))
 
-        # verify sec_data
-        self.asym_validate_sign(sec_data.encode(), sec_data_signature, self.server_pub_key)
+        nounce = sec_data["nounce"]
 
         if nounce not in self.warrant_nounces:
             print("Something went wrong with the nounce in the secure layer decrypt.")
@@ -252,7 +251,7 @@ class ClientCipher:
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
-        raw_msg = self.hybrid_decipher(sec_data, self.client_app_keys[0], ks=key).decode()
+        raw_msg = self.hybrid_decipher(msg["data"], self.client_app_keys[0], ks=key).decode()
 
         return raw_msg
 

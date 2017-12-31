@@ -183,12 +183,20 @@ class ServerCipher:
                                           ks=key,
                                           cipher_key=False)
 
+        sec_data = pickle.dumps({
+            "nounce": sec_data["nounce"]
+        })
+
+        # sec_data ciphered
+        sec_data_ciphered = self.hybrid_cipher(sec_data, self.client_public_key)
+
         return_message = {
-            "sec_data": ciphered_msg.decode(),
-            "sec_data_signature": base64.b64encode(self.asym_sign(self.server_priv_key, ciphered_msg)).decode(),
-            "nounce": base64.b64encode(sec_data["nounce"]).decode(),
-            "nounce_signature": base64.b64encode(self.asym_sign(self.server_priv_key, sec_data["nounce"])).decode()
+            "data": ciphered_msg.decode(),
+            "sec_data": base64.b64encode(sec_data_ciphered).decode()
         }
+
+        return_message["signature"] = base64.b64encode(self.asym_sign(self.server_priv_key,
+                                                                      json.dumps(return_message).encode())).decode()
 
         # dump the return message
         pickle_dumps = pickle.dumps(return_message)
@@ -211,7 +219,7 @@ class ServerCipher:
         self.requests_received += 1
 
         # decipher the sec_data
-        sec_data = pickle.loads(self.asym_decipher(self.server_priv_key, sec_data))
+        sec_data = pickle.loads(self.hybrid_decipher(sec_data, self.server_priv_key))
 
         salt = sec_data["salt"]
         nounce = sec_data["nounce"]
