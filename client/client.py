@@ -151,19 +151,22 @@ class Client:
         elif option == 4:
             sent_messages = self.client.all(self.server_id)["result"][1]
 
-            print("Select which message do you want to see the receipt: ")
+            if len(sent_messages) > 0:
+                print("Select which message do you want to see the receipt: ")
 
-            for i in range(0, len(sent_messages)):
-                print("%d - %s" % (i, sent_messages[i]))
+                for i in range(0, len(sent_messages)):
+                    print("%d - %s" % (i, sent_messages[i]))
 
-            msg_id = int(input("Type: "))
+                msg_id = int(input("Type: "))
 
-            if 0 <= msg_id < len(sent_messages):
-                msg_id = sent_messages[msg_id]
-                status = self.client.status(self.server_id, msg_id, self.private_key, self.cc)
+                if 0 <= msg_id < len(sent_messages):
+                    msg_id = sent_messages[msg_id]
+                    status = self.client.status(self.server_id, msg_id, self.private_key, self.cc)
 
-                print("Message: %s" % status["result"]["msg"]["message"])
-                print("Receipt: %s" % ("YES" if len(status["result"]["receipts"]) > 0 else "NO"))
+                    print("Message: %s" % status["result"]["msg"]["message"])
+                    print("Receipt: %s" % ("YES" if len(status["result"]["receipts"]) > 0 else "NO"))
+            else:
+                print("There is no receipt yet.")
         else:
             return False
 

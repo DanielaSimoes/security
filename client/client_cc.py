@@ -118,7 +118,7 @@ class CitizenCard:
                                     ))
 
     @staticmethod
-    def validate_chain(chain, pem_certificate, ssl_ca_root_file="./utils/mozilla-ca-bundle.txt"):
+    def validate_chain(chain, pem_certificate, ssl_ca_root_file="./utils/ca-bundle.txt"):
         # parse CA roots certificate PEMs to an list
         trusted_certs_pems = parse_file(ssl_ca_root_file)
 
