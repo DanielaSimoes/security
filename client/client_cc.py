@@ -19,15 +19,31 @@ class CitizenCard:
     to be used: https://github.com/danni/python-pkcs11/blob/master/docs/opensc.rst
 
     """
-
     def __init__(self, pin=None):
+
+        lib = pkcs11.lib(os.getenv('PKCS11_MODULE',  "/usr/local/lib/opensc-pkcs11.dylib"))
+
+        slots = lib.get_slots(token_present=True)
+        print("Available slots: 0 to", len(slots)-1)
+
+        for i in range(0, len(slots)):
+            print("%d %s" % (i, slots[i].slot_description))
+
+        slot_select = input("Select slot: ")
+
+        slot = slots[int(slot_select)]
+        tokens = lib.get_tokens()
+        token_label = "Auth PIN (CARTAO DE CIDADAO)"
+
+        for token in tokens:
+            if token_label == token.label and slot == token.slot:
+                self.token = token
+                break
+
         if pin is None:
             self.pin = getpass.getpass("Auth PIN (CARTAO DE CIDADAO): ")
         else:
             self.pin = pin
-
-        lib = pkcs11.lib(os.getenv('PKCS11_MODULE',  "/usr/local/lib/opensc-pkcs11.dylib"))
-        self.token = lib.get_token(token_label='Auth PIN (CARTAO DE CIDADAO)')
 
     def inserted(self):
         with self.token.open(user_pin=self.pin) as session:
@@ -156,10 +172,14 @@ class CitizenCard:
         pem = self.get_certificate_pem()
         return hashlib.sha224(pem).hexdigest()
 
+    def get_certificate_chain(self):
+        return [self.get_certificate_pem(label=label).decode() for label in self.get_available_certs_labels()]
+
 
 if __name__ == '__main__':
-    pin = "3885"
-    cc = CitizenCard(pin=pin)
+    #pin = "4469" # 3 - Alcor Micro AU9560
+    #pin = "3885" # 0 - Generic Smart Card Reader Interface
+    cc = CitizenCard()
     data = b'INPUT'
     signature = cc.sign(data)
 
@@ -172,18 +192,7 @@ if __name__ == '__main__':
     data_ciphered = cc.encrypt(data, x509_pem)
 
     # cc.decrypt(data_ciphered)
-    x509_chain = [cc.get_certificate_pem(label=label) for label in cc.get_available_certs_labels()]
-
-    for label in cc.get_available_certs_labels():
-        x509_certificate = cc.get_certificate_pem(label=label)
-
-        cert_file = 'utils/crts/%s.pem' % label
-        f = open(cert_file, 'wb')
-        f.write(x509_certificate)
-        f.close()
-
-    cc.validate_chain(chain=x509_chain, pem_certificate=x509_pem)
+    cc.validate_chain(chain=cc.get_certificate_chain(), pem_certificate=x509_pem)
 
     print(cc.get_certificate_pem())
     print(cc.get_public_key_pem())
-    print("ok")

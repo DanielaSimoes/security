@@ -8,27 +8,29 @@ import os
 
 
 class ClientActions(ClientSocket):
-    def __init__(self, host='127.0.0.1', port=8080):
+    def __init__(self, cc, host='127.0.0.1', port=8080):
         """
         Create a client to connect to server socket.
+        :param cc: Citizen Card user
         :param host: server IP
         :param port: server port
         """
+        self.cc = cc
         super().__init__(host, port)
 
-    def create(self, uuid, public_key_pem, cc):
+    def create(self, uuid, public_key_pem):
         """
         Create a message box for user in server.
         :param uuid: client uuid
-        :param cc: the CC object (CitizenCard)
         :param public_key_pem: the user public key PEM
         :return: the response of the server
         """
         msg = {"uuid": uuid,
-               "cc_public_certificate": cc.get_certificate_pem().decode(),
+               "cc_chain": self.cc.get_certificate_chain(),
+               "cc_public_certificate": self.cc.get_certificate_pem().decode(),
                "user_public_pem": public_key_pem.decode()}
 
-        data_signature = cc.sign(json.dumps(msg).encode())
+        data_signature = self.cc.sign(json.dumps(msg).encode())
 
         msg["type"] = "create"
         msg["signature"] = base64.b64encode(data_signature).decode()
@@ -70,13 +72,12 @@ class ClientActions(ClientSocket):
 
         return self.sck_receive()
 
-    def send(self, source_uuid, destination_uuid, msg, cc, public_key):
+    def send(self, source_uuid, destination_uuid, msg, public_key):
         """
         Sent by the client to send a message to other client's message box.
         :param destination_uuid
         :param source_uuid
         :param msg
-        :param cc: the CC object (CitizenCard)
         :param public_key: user public key
         :return: the response of the server
         """
@@ -88,7 +89,7 @@ class ClientActions(ClientSocket):
 
         msg = json.dumps({
             "message": msg,
-            "signature": base64.b64encode(cc.sign(msg.encode())).decode()
+            "signature": base64.b64encode(self.cc.sign(msg.encode())).decode()
         })
 
         # only the destination user can see the message
@@ -122,7 +123,7 @@ class ClientActions(ClientSocket):
                                                                                   private_key).decode())
 
             # verify signature
-            peer_public_details = self.get_user_public_details(uuid)
+            peer_public_details = self.get_user_public_details(int(messages["result"][0]))
 
             CitizenCard.verify(messages["result"][1]["message"].encode(),
                                base64.b64decode(messages["result"][1]["signature"]),
@@ -132,34 +133,33 @@ class ClientActions(ClientSocket):
 
         return messages
 
-    def receipt(self, uuid_msg_box, message_id, signature, cc):
+    def receipt(self, uuid_msg_box, uuid_from_id, message_id, signature):
         """
         Sent by the client after receiving and validating a message from a message box.
-        :param uuid_msg_box
+        :param uuid_msg_box (receiver)
+        :param uuid_from_id (sender) to use in user public details to sign
         :param message_id
         :param signature
-        :param cc
         :return: None
         """
         # generate receipt for the received message
         # the signature of the message received and then encrypted with the peer public key
-        peer_public_details = self.get_user_public_details(int(uuid_msg_box))
+        peer_public_details = self.get_user_public_details(int(uuid_from_id))
         peer_public_key = serialization.load_pem_public_key(peer_public_details["user_public_pem"].encode(),
                                                             backend=default_backend())
 
-        signature = cc.sign(signature)
+        signature = self.cc.sign(signature)
         signature = base64.b64encode(self.client_cipher.hybrid_cipher(signature, peer_public_key)).decode()
 
         msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature}
         self.sck_send(msg)
 
-    def status(self, uuid_msg_box, message_id, private_key, cc):
+    def status(self, uuid_msg_box, message_id, private_key):
         """
         Sent by the client for checking the reception status of a sent message.
         :param uuid_msg_box
         :param message_id
         :param private_key: user private key
-        :param cc: the CC object (CitizenCard)
         :return: None
         """
         msg = {"type": "status", "id": uuid_msg_box, "msg": message_id}
@@ -173,7 +173,7 @@ class ClientActions(ClientSocket):
 
         CitizenCard.verify(status["result"]["msg"]["message"].encode(),
                            base64.b64decode(status["result"]["msg"]["signature"]),
-                           cc.get_certificate_pem())
+                           self.cc.get_certificate_pem())
 
         for receipt in status["result"]["receipts"]:
             signature = self.client_cipher.hybrid_decipher(base64.b64decode(receipt["receipt"]), private_key)
@@ -194,11 +194,7 @@ class ClientActions(ClientSocket):
         del peer_public_details["signature"]
 
         # validate received certificate
-        chain = []
-        for crl in [f for f in os.listdir("utils/crts") if os.path.isfile(os.path.join("utils/crts", f))]:
-            chain.append(open(os.path.join("utils/crts", crl), "r").read())
-
-        CitizenCard.validate_chain(chain=chain, pem_certificate=peer_public_details["cc_public_certificate"].encode())
+        CitizenCard.validate_chain(chain=peer_public_details["cc_chain"], pem_certificate=peer_public_details["cc_public_certificate"].encode())
 
         # verify received public keys with the public cc key from the certificate
         CitizenCard.verify(json.dumps(peer_public_details).encode(), base64.b64decode(signature.encode()),

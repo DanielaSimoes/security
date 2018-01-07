@@ -153,6 +153,11 @@ wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
 echo ${CERT}
 openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
 
+CERT="cc_ec_cidadao_crl004_crl.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
 
 CERT="cc_sub-ec_cidadao_assinatura_crl0001.crl"
 wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
@@ -665,6 +670,43 @@ openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
 
 
 CERT="cc_sub-ec_cidadao_autenticacao_crl0009_delta_p0007.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0001.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0002.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0003.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0004.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0005.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0006.crl"
+wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
+echo ${CERT}
+openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}
+
+CERT="cc_sub-ec_cidadao_autenticacao_crl0008_p0007.crl"
 wget "https://pki.cartaodecidadao.pt/publico/lrc/"${CERT}
 echo ${CERT}
 openssl crl -inform DER -in ${CERT} -outform PEM -out ${CERT}

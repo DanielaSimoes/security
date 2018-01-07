@@ -17,9 +17,7 @@ class ServerActions:
             'status': self.processStatus,
             'exists': self.processExists,
             'user_public_details': self.processUserPublicDetails,
-            'session_key': self.processSessionKey,
-            # only for dev
-            'delete_all': self.delete_all
+            'session_key': self.processSessionKey
         }
 
         self.server_cipher = ServerCipher()
@@ -65,14 +63,17 @@ class ServerActions:
         if "phase" not in data["msg"] or not isinstance(data["msg"]["phase"], int):
             log(logging.ERROR, "The process session key must have a phase number.")
             client.sendResult({"error": "unknown request"}, sec_data)
+            return
 
         if data["msg"]["phase"] == 2 or data["msg"]["phase"] == 4:
             result = client.server_cipher.negotiate_session_key(data["msg"]["phase"], data["msg"])
             # we have the shared secret but the client don't, so force no cipher response
             client.sendResult({"result": result}, sec_data)
+            return
         else:
             log(logging.ERROR, "Invalid message phase: " + str(data["msg"]['phase']))
             client.sendResult({"error": "unknown request"}, sec_data)
+            return
 
     def processExists(self, data, client, sec_data):
         if self.registry.userExists_uuid(data["uuid"]):
@@ -117,11 +118,7 @@ class ServerActions:
         del data["signature"]
 
         # validate received certificate
-        chain = []
-        for crl in [f for f in os.listdir("utils/crts") if os.path.isfile(os.path.join("utils/crts", f))]:
-            chain.append(open(os.path.join("utils/crts", crl), "r").read())
-
-        self.server_cipher.cc.validate_chain(chain=chain, pem_certificate=data["cc_public_certificate"].encode())
+        self.server_cipher.cc.validate_chain(chain=data["cc_chain"], pem_certificate=data["cc_public_certificate"].encode())
 
         # verify received public keys with the public cc key from the certificate
         self.server_cipher.cc.verify(json.dumps(data).encode(), base64.b64decode(signature.encode()),
@@ -220,6 +217,7 @@ class ServerActions:
             log(logging.ERROR,
                 "Badly formated \"send\" message: " + json.dumps(data))
             client.sendResult({"error": "wrong message format"}, sec_data)
+            return
 
         srcId = int(data['src'])
         dstId = int(data['dst'])
@@ -258,6 +256,7 @@ class ServerActions:
             log(logging.ERROR, "Badly formated \"recv\" message: " +
                 json.dumps(data))
             client.sendResult({"error": "wrong message format"}, sec_data)
+            return
 
         fromId = int(data['id'])
         msg = str(data['msg'])
@@ -294,6 +293,7 @@ class ServerActions:
             log(logging.ERROR, "Badly formated \"receipt\" message: " +
                 json.dumps(data))
             client.sendResult({"error": "wrong request format"}, sec_data)
+            return
 
         fromId = int(data["id"])
         msg = str(data['msg'])
@@ -321,6 +321,7 @@ class ServerActions:
             log(logging.ERROR, "Badly formated \"status\" message: " +
                 json.dumps(data))
             client.sendResult({"error": "wrong message format"}, sec_data)
+            return
 
         fromId = int(data['id'])
         msg = str(data["msg"])

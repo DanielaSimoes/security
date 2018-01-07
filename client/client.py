@@ -10,8 +10,8 @@ class Client:
     def __init__(self):
         print("Making a secure channel with the server...")
 
-        self.client = ClientActions()
-        self.cc = CitizenCard("3885")  # only for dev, remove it
+        self.cc = CitizenCard()
+        self.client = ClientActions(self.cc)
 
         # generate the uuid of the user
         print("Generating a UUID based in your citizen card...")
@@ -27,7 +27,7 @@ class Client:
         self.public_key_pem = None
         self.user_asym_keys()
 
-        rsp = self.client.create(self.uuid, self.public_key_pem, self.cc)
+        rsp = self.client.create(self.uuid, self.public_key_pem)
 
         if "result" in rsp:
             self.server_id = rsp["result"]
@@ -116,7 +116,7 @@ class Client:
                 print("OK")
                 message = str(input("Write your message:"))
 
-                rsp = self.client.send(self.server_id, server_id_peer, message, self.cc, self.public_key)
+                rsp = self.client.send(self.server_id, server_id_peer, message, self.public_key)
                 if "result" in rsp and len(rsp["result"]) > 0:
                     print("Message sent!")
                 else:
@@ -137,8 +137,7 @@ class Client:
                         # the signature of the message received and then encrypted with the peer public key
                         # for that we need the peer public key
 
-                        self.client.receipt(message_rcv["result"][0], message, message_rcv["result"][1].encode(),
-                                            self.cc)
+                        self.client.receipt(self.server_id, message_rcv["result"][0], message, message_rcv["result"][1].encode())
 
                         print("#####")
                         print("Message from ID: %s" % message_rcv["result"][0])
@@ -146,7 +145,9 @@ class Client:
                         print("#####")
         elif option == 3:
             print("Peers you may send a message:\n")
-            for peer in self.client.list()["result"]:
+            result = self.client.list()
+
+            for peer in result["result"]:
                 print("Peer id: " + str(peer["uuid"]))
         elif option == 4:
             sent_messages = self.client.all(self.server_id)["result"][1]
@@ -161,7 +162,7 @@ class Client:
 
                 if 0 <= msg_id < len(sent_messages):
                     msg_id = sent_messages[msg_id]
-                    status = self.client.status(self.server_id, msg_id, self.private_key, self.cc)
+                    status = self.client.status(self.server_id, msg_id, self.private_key)
 
                     print("Message: %s" % status["result"]["msg"]["message"])
                     print("Receipt: %s" % ("YES" if len(status["result"]["receipts"]) > 0 else "NO"))
