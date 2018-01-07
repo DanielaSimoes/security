@@ -133,13 +133,13 @@ class ClientActions(ClientSocket):
 
         return messages
 
-    def receipt(self, uuid_msg_box, uuid_from_id, message_id, signature):
+    def receipt(self, uuid_msg_box, uuid_from_id, message_id, msg_content):
         """
         Sent by the client after receiving and validating a message from a message box.
         :param uuid_msg_box (receiver)
         :param uuid_from_id (sender) to use in user public details to sign
         :param message_id
-        :param signature
+        :param msg_content
         :return: None
         """
         # generate receipt for the received message
@@ -148,7 +148,7 @@ class ClientActions(ClientSocket):
         peer_public_key = serialization.load_pem_public_key(peer_public_details["user_public_pem"].encode(),
                                                             backend=default_backend())
 
-        signature = self.cc.sign(signature)
+        signature = self.cc.sign(msg_content)
         signature = base64.b64encode(self.client_cipher.hybrid_cipher(signature, peer_public_key)).decode()
 
         msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature}

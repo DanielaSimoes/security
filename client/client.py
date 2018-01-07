@@ -113,7 +113,6 @@ class Client:
             if server_id_peer is None:
                 print("The peer is not registered in the server.")
             else:
-                print("OK")
                 message = str(input("Write your message:"))
 
                 rsp = self.client.send(self.server_id, server_id_peer, message, self.public_key)

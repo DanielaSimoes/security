@@ -45,10 +45,6 @@ class CitizenCard:
         else:
             self.pin = pin
 
-    def inserted(self):
-        with self.token.open(user_pin=self.pin) as session:
-            return False if session is None else True
-
     def sign(self, data):
         with self.token.open(user_pin=self.pin) as session:
             priv = session.get_key(pkcs11.constants.ObjectClass.PRIVATE_KEY,
@@ -75,15 +71,7 @@ class CitizenCard:
             return self.get_certificate(label).public_bytes(Encoding.PEM)
 
     def get_public_key(self, label="CITIZEN AUTHENTICATION CERTIFICATE"):
-        with self.token.open(user_pin=self.pin) as session:
-            # get public key certificates
-            for cert in session.get_objects({pkcs11.constants.Attribute.CLASS: pkcs11.constants.ObjectClass.CERTIFICATE,
-                                             pkcs11.constants.Attribute.LABEL: label}):
-
-                value = cert[pkcs11.constants.Attribute.VALUE]
-                cert = x509.load_der_x509_certificate(value, default_backend())
-
-                return cert.public_key()
+            return self.get_certificate(label).public_key()
 
     def get_public_key_pem(self, label="CITIZEN AUTHENTICATION CERTIFICATE"):
             return self.get_public_key(label).public_bytes(
@@ -135,24 +123,20 @@ class CitizenCard:
 
     @staticmethod
     def validate_chain(chain, pem_certificate, ssl_ca_root_file="./utils/ca-bundle.txt"):
-        # parse CA roots certificate PEMs to an list
+        # parse CA roots certificate PEMs to a list
         trusted_certs_pems = parse_file(ssl_ca_root_file)
 
         # create a new store
         store = crypto.X509Store()
 
-        # check middle CAs for revocation
-        store.set_flags(crypto.X509StoreFlags.CRL_CHECK)
-
         # check just the certificate CRL and not if all certificates up to the root are revoked
-        # not recommended since requires all CAs root revogations
         store.set_flags(crypto.X509StoreFlags.CRL_CHECK_ALL)
 
         # add system trusted CA roots to store
         for pem_crt in trusted_certs_pems:
             store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, pem_crt.as_bytes()))
 
-        # load supplied chain
+        # load chain to verify
         for pem_crt in chain:
             store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, pem_crt))
 
@@ -166,6 +150,7 @@ class CitizenCard:
         for crl in [f for f in os.listdir("utils/crls") if os.path.isfile(os.path.join("utils/crls", f))]:
             store.add_crl(crypto.load_crl(crypto.FILETYPE_PEM, open(os.path.join("utils/crls", crl), "r").read()))
 
+        # verify if not revoked
         store_ctx.verify_certificate()
 
     def generate_uuid(self):

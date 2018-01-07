@@ -333,14 +333,3 @@ class ServerActions:
 
         response = self.registry.getReceipts(fromId, msg)
         client.sendResult({"result": response}, sec_data)
-
-    def delete_all(self, data, client, sec_data):
-        """
-        REMOVE MEE! ONLY FOR DEV!!
-        :param data:
-        :param client:
-        :return:
-        """
-        self.registry.users = {}
-        shutil.rmtree('mboxes', ignore_errors=True)
-        shutil.rmtree('receipts', ignore_errors=True)
