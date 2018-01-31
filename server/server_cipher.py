@@ -278,7 +278,7 @@ class ServerCipher:
         :return: value to send to the client
         """
         if phase == 2:
-            # server generate DH private and public key
+            # server generate DH private and public key, 1024 para cima ou curva elipticas
             self.server_dh = DiffieHellman(key_length=256)
             self.server_dh.generate_public_key()
     

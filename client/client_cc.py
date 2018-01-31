@@ -24,14 +24,24 @@ class CitizenCard:
         lib = pkcs11.lib(os.getenv('PKCS11_MODULE',  "/usr/local/lib/opensc-pkcs11.dylib"))
 
         slots = lib.get_slots(token_present=True)
-        print("Available slots: 0 to", len(slots)-1)
+        print("Available slots:")
 
-        for i in range(0, len(slots)):
-            print("%d %s" % (i, slots[i].slot_description))
+        for i in range(0, int(len(slots)/3)):
+            # for each slot, get tokens
+            slot = slots[i*3]
+            tokens = lib.get_tokens()
+            token_label = "Auth PIN (CARTAO DE CIDADAO)"
+
+            for token in tokens:
+                if token_label == token.label and slot == token.slot:
+                    self.token = token
+                    name = self.get_cc_name()
+                    print("%d %s" % (i, name))
+                    break
 
         slot_select = input("Select slot: ")
 
-        slot = slots[int(slot_select)]
+        slot = slots[int(slot_select)*3]
         tokens = lib.get_tokens()
         token_label = "Auth PIN (CARTAO DE CIDADAO)"
 
@@ -159,6 +169,31 @@ class CitizenCard:
 
     def get_certificate_chain(self):
         return [self.get_certificate_pem(label=label).decode() for label in self.get_available_certs_labels()]
+
+    def get_cc_name(self, label="CITIZEN AUTHENTICATION CERTIFICATE"):
+        cert = None
+
+        with self.token.open() as session:
+            # get public key certificates
+            for cert in session.get_objects({pkcs11.constants.Attribute.CLASS: pkcs11.constants.ObjectClass.CERTIFICATE,
+                                             pkcs11.constants.Attribute.LABEL: label}):
+                value = cert[pkcs11.constants.Attribute.VALUE]
+                cert = x509.load_der_x509_certificate(value, default_backend())
+                break
+
+        if cert is None:
+            return "Name could not be found!"
+
+        certificate_pem = cert.public_bytes(Encoding.PEM)
+        # load cert with x509
+        cert = x509.load_pem_x509_certificate(certificate_pem, backend=default_backend())
+
+        # get the subject attributes
+        for attribute in cert.subject:
+            if attribute._oid._name == "commonName":
+                return attribute.value
+
+        return "Name could not be found!"
 
 
 if __name__ == '__main__':

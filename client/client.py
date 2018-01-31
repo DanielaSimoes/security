@@ -60,6 +60,15 @@ class Client:
                 encryption_algorithm=serialization.NoEncryption()
             )
 
+            """ cipher the stored private key """
+            # sign the uuid (known and unique value)
+            signature = self.cc.sign(self.uuid)
+
+            # derive a key to cipher the stored key
+            print("ook")
+
+            # cipher the stored key
+
             self.private_key_pem = pem
             private_file = 'utils/user_keys/%s/private_key.pem' % self.uuid
             f = open(private_file, 'wb')
