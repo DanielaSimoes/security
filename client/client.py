@@ -64,19 +64,24 @@ class Client:
             # sign the uuid (known and unique value)
             signature = self.cc.sign(self.uuid)
 
-            # derive a key to cipher the stored key
-            print("ook")
-
             # cipher the stored key
+            ciphered_key_pem = self.client.client_cipher.sym_cipher(pem, signature[0:32], signature[32:48])[1]  # return 0 -> iv, 1-> ciphered obj
 
+            # store key
             self.private_key_pem = pem
             private_file = 'utils/user_keys/%s/private_key.pem' % self.uuid
             f = open(private_file, 'wb')
-            f.write(pem)
+            f.write(ciphered_key_pem)
             f.close()
         else:
             # load private key
-            self.private_key_pem = open('utils/user_keys/%s/private_key.pem' % self.uuid, "rb").read()
+            tmp = open('utils/user_keys/%s/private_key.pem' % self.uuid, "rb").read()
+
+            # sign the uuid (known and unique value)
+            signature = self.cc.sign(self.uuid)
+
+            self.private_key_pem = self.client.client_cipher.sym_decipher(tmp, signature[0:32], signature[32:48])
+
             self.private_key = serialization.load_pem_private_key(self.private_key_pem, password=None,
                                                                   backend=default_backend())
 
@@ -95,13 +100,26 @@ class Client:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             )
 
+            """ cipher the stored public key """
+            # sign the uuid (known and unique value)
+            signature = self.cc.sign(self.uuid)
+
+            # cipher the stored key
+            ciphered_key_pem = self.client.client_cipher.sym_cipher(pem, signature[0:32], signature[32:48])[1]  # return 0 -> iv, 1-> ciphered obj
+
             self.public_key_pem = pem
             public_file = 'utils/user_keys/%s/public_key.pem' % self.uuid
             f = open(public_file, 'wb')
-            f.write(pem)
+            f.write(ciphered_key_pem)
             f.close()
         else:
-            self.public_key_pem = open('utils/user_keys/%s/public_key.pem' % self.uuid, "rb").read()
+            tmp = open('utils/user_keys/%s/public_key.pem' % self.uuid, "rb").read()
+
+            # sign the uuid (known and unique value)
+            signature = self.cc.sign(self.uuid)
+
+            self.public_key_pem = self.client.client_cipher.sym_decipher(tmp, signature[0:32], signature[32:48])
+
             # load public key
             self.public_key = serialization.load_pem_public_key(self.public_key_pem, backend=default_backend())
 
