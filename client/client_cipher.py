@@ -90,14 +90,26 @@ class ClientCipher:
     SYMMETRIC KEY CIPHER
     """
 
-    def sym_cipher(self, obj, ks, iv=os.urandom(16)):
+    def sym_cipher(self, obj, ks, mode, iv=os.urandom(16)):
         """
 
         :param iv: key to cipher the object
         :param obj: object to be ciphered
         :param ks: key to cipher the object
         """
-        cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
+        cipher = ""
+
+        """CTR MODE"""
+        if (mode=="CTR"):
+            cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
+
+        """CFB MODE"""
+        if (mode == "CFB"):
+            cipher = Cipher(algorithms.AES(ks), modes.CFB(iv), backend=default_backend())
+
+        """OFB MODE"""
+        if (mode == "OFB"):
+            cipher = Cipher(algorithms.AES(ks), modes.OFB(iv), backend=default_backend())
 
         # pickle makes the serialization of the object
         pickle_dumps = pickle.dumps([obj, os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
@@ -108,7 +120,7 @@ class ClientCipher:
 
         return iv, ciphered_obj
 
-    def sym_decipher(self, obj, ks, iv):
+    def sym_decipher(self, obj, ks, iv, mode):
         """
 
         :param obj:
@@ -116,7 +128,20 @@ class ClientCipher:
         :param iv:
         :return:
         """
-        cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
+        cipher = ""
+
+        """CTR MODE"""
+        if (mode=="CTR"):
+            cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
+
+        """CFB MODE"""
+        if (mode == "CFB"):
+            cipher = Cipher(algorithms.AES(ks), modes.CFB(iv), backend=default_backend())
+
+        """OFB MODE"""
+        if (mode == "OFB"):
+            cipher = Cipher(algorithms.AES(ks), modes.OFB(iv), backend=default_backend())
+
         decryptor = cipher.decryptor()
         deciphered_data = decryptor.update(obj) + decryptor.finalize()
         data, random = pickle.loads(deciphered_data)
@@ -125,7 +150,7 @@ class ClientCipher:
     """
     HYBRID A-SYMMETRIC KEY CIPHER
     """
-    def hybrid_decipher(self, obj, private_key, ks=None):
+    def hybrid_decipher(self, obj, private_key, mode, ks=None):
         obj, random_pickle = pickle.loads(base64.b64decode(obj))
 
         # decipher using rsa private key
@@ -136,12 +161,13 @@ class ClientCipher:
         iv = self.asym_decipher(private_key, base64.b64decode(obj["iv"]))
 
         # decipher using symmetric AES CTR
-        return self.sym_decipher(base64.b64decode(obj["obj"]), ks, iv)
+        return self.sym_decipher(base64.b64decode(obj["obj"]), ks, iv, mode)
 
-    def hybrid_cipher(self, obj, public_key, ks=os.urandom(32), cipher_key=True):
+    def hybrid_cipher(self, obj, public_key, mode, ks=os.urandom(32), cipher_key=True):
         # cipher using symmetric cipher AES CTR
         # returns the ciphered obj with the IV
-        iv, ciphered_obj = self.sym_cipher(obj, ks)
+
+        iv, ciphered_obj = self.sym_cipher(obj, ks, mode)
 
         # iv ciphered with the public key
         iv_encrypted = self.asym_cipher(public_key, iv)
