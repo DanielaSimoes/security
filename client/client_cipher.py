@@ -12,12 +12,14 @@ import pickle
 import base64
 import json
 import random
+from client_cc import CitizenCard
 
 SERVER_PUB_KEY = os.path.dirname(os.path.abspath(__file__)) + "/server_public_key.pem"
 RANDOM_ENTROPY_GENERATOR_SIZE = 32
 
 
-class ClientCipher:
+
+class ClientCipher(CitizenCard):
 
     def __init__(self):
         # store client app keys
@@ -38,6 +40,8 @@ class ClientCipher:
 
         # how many requests were made to the server
         self.request_to_server = 1
+
+        self.client_cc = CitizenCard()
 
     def generate_keys(self):
         private_key = rsa.generate_private_key(
@@ -227,10 +231,10 @@ class ClientCipher:
         })
 
         # sec_data ciphered
-        sec_data_ciphered = self.hybrid_cipher(sec_data, self.server_pub_key)
+        sec_data_ciphered = self.hybrid_cipher(sec_data,  self.server_pub_key, self.client_cc.get_mode())
 
         # cipher with symmetric cipher the message content
-        iv, ciphered_obj = self.sym_cipher(msg, key, iv=iv)
+        iv, ciphered_obj = self.sym_cipher(msg, key, self.client_cc.get_mode(), iv=iv)
 
         # message to be signed and sent to the server
         return_message = {
@@ -329,7 +333,8 @@ class ClientCipher:
 
             # cipher DH public key with server pub. key
             # cipher the client DH public key
-            client_dh_ciphered = self.hybrid_cipher(self.client_dh.public_key, self.server_pub_key)
+            client_dh_ciphered = self.hybrid_cipher(self.client_dh.public_key, self.server_pub_key,
+                                                    self.client_cc.get_mode())
 
             # cipher the client public key
 
@@ -338,7 +343,7 @@ class ClientCipher:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             )
 
-            client_public_key_ciphered = self.hybrid_cipher(pem, self.server_pub_key)
+            client_public_key_ciphered = self.hybrid_cipher(pem, self.server_pub_key, self.client_cc.get_mode())
 
             return {
                 "data": client_dh_ciphered.decode(),
@@ -357,7 +362,7 @@ class ClientCipher:
                                     self.server_pub_key)
 
             # decipher the received DH value
-            server_dh_pub = self.hybrid_decipher(val["data"], self.client_app_keys[0])
+            server_dh_pub = self.hybrid_decipher(val["data"], self.client_app_keys[0], self.client_cc.get_mode())
 
             # generate shared secret (client session key)
             self.client_dh.generate_shared_secret(server_dh_pub)
@@ -365,7 +370,7 @@ class ClientCipher:
             # save the session key
             self.session_key, salt = self.key_derivation(str(self.client_dh.shared_secret).encode())
 
-            salt_ciphered = self.hybrid_cipher(salt, self.server_pub_key)
+            salt_ciphered = self.hybrid_cipher(salt, self.server_pub_key, self.client_cc.get_mode())
 
             return {
                 "phase": 4,
