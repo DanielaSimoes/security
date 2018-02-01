@@ -5,6 +5,7 @@ from client_cc import CitizenCard
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 import os
+import uuid
 
 
 class ClientActions(ClientSocket):
@@ -86,6 +87,7 @@ class ClientActions(ClientSocket):
                                                             backend=default_backend())
 
         # sign the message with the CC, but only the message
+        msg = msg + "\t\tUUID\n\n" + str(uuid.uuid4())  # unique value to the msg append
 
         msg = json.dumps({
             "message": msg,

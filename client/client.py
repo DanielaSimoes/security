@@ -167,7 +167,7 @@ class Client:
 
                         print("#####")
                         print("Message from ID: %s" % message_rcv["result"][0])
-                        print("Content: %s" % message_rcv["result"][1])
+                        print("Content: %s" % message_rcv["result"][1].split("\t\tUUID\n\n")[0])
                         print("#####")
         elif option == 3:
             print("Peers you may send a message:\n")
@@ -190,7 +190,7 @@ class Client:
                     msg_id = sent_messages[msg_id]
                     status = self.client.status(self.server_id, msg_id, self.private_key)
 
-                    print("Message: %s" % status["result"]["msg"]["message"])
+                    print("Message: %s" % status["result"]["msg"]["message"].split("\t\tUUID\n\n")[0])
                     print("Receipt: %s" % ("YES" if len(status["result"]["receipts"]) > 0 else "NO"))
             else:
                 print("There is no receipt yet.")

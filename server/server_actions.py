@@ -20,6 +20,8 @@ class ServerActions:
             'session_key': self.processSessionKey
         }
 
+        self.me = None  # represents user obj
+
         self.server_cipher = ServerCipher()
         self.registry = ServerRegistry()
 
@@ -125,14 +127,15 @@ class ServerActions:
                                      data["cc_public_certificate"].encode())
 
         if self.registry.userExists_uuid(uuid):
+            self.me = self.registry.getUser(uuid)
             log(logging.ERROR, "User already exists: " + json.dumps(data))
             client.sendResult({"error": "uuid already exists"}, sec_data)
             return
 
         data["signature"] = signature
 
-        me = self.registry.addUser(data)
-        client.sendResult({"result": me.id}, sec_data)
+        self.me = self.registry.addUser(data)
+        client.sendResult({"result": self.me.id}, sec_data)
 
     def processList(self, data, client, sec_data):
         """
@@ -176,6 +179,12 @@ class ServerActions:
             client.sendResult({"error": "wrong message format"}, sec_data)
             return
 
+        if user != self.me.id:
+            log(logging.ERROR,
+                "Can't read messages from other user message box!")
+            client.sendResult({"error": "Can't read messages from other user message box!"}, sec_data)
+            return
+
         client.sendResult({"result": self.registry.userNewMessages(user)}, sec_data)
 
     def processAll(self, data, client, sec_data):
@@ -196,6 +205,12 @@ class ServerActions:
             log(logging.ERROR,
                 "No valid \"id\" field in \"new\" message: " + json.dumps(data))
             client.sendResult({"error": "wrong message format"}, sec_data)
+            return
+
+        if user != self.me.id:
+            log(logging.ERROR,
+                "Can't read messages from other user message box!")
+            client.sendResult({"error": "Can't read messages from other user message box!"}, sec_data)
             return
 
         client.sendResult({"result": [self.registry.userAllMessages(user), self.registry.userSentMessages(user)]},
@@ -259,6 +274,13 @@ class ServerActions:
             return
 
         fromId = int(data['id'])
+
+        if fromId != self.me.id:
+            log(logging.ERROR,
+                "Can't read messages from other user message box!")
+            client.sendResult({"error": "Can't read messages from other user message box!"}, sec_data)
+            return
+
         msg = str(data['msg'])
 
         if not self.registry.userExists(fromId):
@@ -296,6 +318,13 @@ class ServerActions:
             return
 
         fromId = int(data["id"])
+
+        if fromId != self.me.id:
+            log(logging.ERROR,
+                "Can't read messages from other user message box!")
+            client.sendResult({"error": "Can't read messages from other user message box!"}, sec_data)
+            return
+
         msg = str(data['msg'])
         receipt = str(data['receipt'])
 
@@ -324,6 +353,13 @@ class ServerActions:
             return
 
         fromId = int(data['id'])
+
+        if fromId != self.me.id:
+            log(logging.ERROR,
+                "Can't read messages from other user message box!")
+            client.sendResult({"error": "Can't read messages from other user message box!"}, sec_data)
+            return
+
         msg = str(data["msg"])
 
         if (not self.registry.copyExists(fromId, msg)):
