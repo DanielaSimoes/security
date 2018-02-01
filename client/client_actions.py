@@ -5,6 +5,7 @@ from client_cc import CitizenCard
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 import os
+from datetime import datetime
 import uuid
 
 
@@ -150,10 +151,11 @@ class ClientActions(ClientSocket):
         peer_public_key = serialization.load_pem_public_key(peer_public_details["user_public_pem"].encode(),
                                                             backend=default_backend())
 
-        signature = self.cc.sign(msg_content)
+        time_now = str(datetime.now().timestamp() * 1000)
+        signature = self.cc.sign(msg_content + time_now.encode())
         signature = base64.b64encode(self.client_cipher.hybrid_cipher(signature, peer_public_key)).decode()
 
-        msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature}
+        msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature + "\t\ntimestamp\t\n" + time_now}
         self.sck_send(msg)
 
     def status(self, uuid_msg_box, message_id, private_key):
@@ -178,10 +180,18 @@ class ClientActions(ClientSocket):
                            self.cc.get_certificate_pem())
 
         for receipt in status["result"]["receipts"]:
+            timestamp = receipt["receipt"].split("\t\ntimestamp\t\n")[1]
+            receipt["receipt"] = receipt["receipt"].split("\t\ntimestamp\t\n")[0]
+
             signature = self.client_cipher.hybrid_decipher(base64.b64decode(receipt["receipt"]), private_key)
             peer_public_details = self.get_user_public_details(int(receipt["id"]))
 
-            CitizenCard.verify(status["result"]["msg"]["message"].encode(),
+            print("Receipt by user %s" % receipt["id"])
+            print("User signed receipt at: %s" % datetime.fromtimestamp(float(timestamp)/1000).strftime('%Y-%m-%d %H:%M:%S'))
+            print("Server received receipt at: %s" % datetime.fromtimestamp(float(receipt["date"])/1000).strftime('%Y-%m-%d %H:%M:%S'))
+            print("")
+
+            CitizenCard.verify(status["result"]["msg"]["message"].encode()+timestamp.encode(),
                                signature,
                                peer_public_details["cc_public_certificate"].encode())
 
