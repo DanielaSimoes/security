@@ -1,5 +1,6 @@
 from client_actions import ClientActions
 from client_cc import CitizenCard
+from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -8,10 +9,22 @@ import os, errno
 
 class Client:
     def __init__(self):
+        mode = input("Cipher Mode: (CTR, CFB, OFB): \n")
+
+        if mode == "CTR":
+            mode = modes.CTR
+        elif mode == "CFB":
+            mode = modes.CFB
+        elif mode == "OFB":
+            mode = modes.OFB
+        else:
+            print("Wrong input!")
+            exit(1)
+
         print("Making a secure channel with the server...")
 
         self.cc = CitizenCard()
-        self.client = ClientActions(self.cc)
+        self.client = ClientActions(mode, self.cc)
 
         # generate the uuid of the user
         print("Generating a UUID based in your citizen card...")

@@ -3,7 +3,7 @@ from cryptography.hazmat.primitives.asymmetric import padding as _aspaadding
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from hashlib import sha256
 from cryptography.hazmat.primitives import hashes, hmac
@@ -12,16 +12,16 @@ import pickle
 import base64
 import json
 import random
-from client_cc import CitizenCard
 
 SERVER_PUB_KEY = os.path.dirname(os.path.abspath(__file__)) + "/server_public_key.pem"
 RANDOM_ENTROPY_GENERATOR_SIZE = 32
 
 
+class ClientCipher:
 
-class ClientCipher(CitizenCard):
+    def __init__(self, mode):
+        self.mode = mode
 
-    def __init__(self):
         # store client app keys
         self.client_app_keys = self.generate_keys()
 
@@ -40,8 +40,6 @@ class ClientCipher(CitizenCard):
 
         # how many requests were made to the server
         self.request_to_server = 1
-
-        self.client_cc = CitizenCard()
 
     def generate_keys(self):
         private_key = rsa.generate_private_key(
@@ -94,26 +92,14 @@ class ClientCipher(CitizenCard):
     SYMMETRIC KEY CIPHER
     """
 
-    def sym_cipher(self, obj, ks, mode, iv=os.urandom(16)):
+    def sym_cipher(self, obj, ks, iv=os.urandom(16)):
         """
 
         :param iv: key to cipher the object
         :param obj: object to be ciphered
         :param ks: key to cipher the object
         """
-        cipher = ""
-
-        """CTR MODE"""
-        if (mode=="CTR"):
-            cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
-
-        """CFB MODE"""
-        if (mode == "CFB"):
-            cipher = Cipher(algorithms.AES(ks), modes.CFB(iv), backend=default_backend())
-
-        """OFB MODE"""
-        if (mode == "OFB"):
-            cipher = Cipher(algorithms.AES(ks), modes.OFB(iv), backend=default_backend())
+        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
 
         # pickle makes the serialization of the object
         pickle_dumps = pickle.dumps([obj, os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
@@ -124,7 +110,7 @@ class ClientCipher(CitizenCard):
 
         return iv, ciphered_obj
 
-    def sym_decipher(self, obj, ks, iv, mode):
+    def sym_decipher(self, obj, ks, iv):
         """
 
         :param obj:
@@ -132,19 +118,7 @@ class ClientCipher(CitizenCard):
         :param iv:
         :return:
         """
-        cipher = ""
-
-        """CTR MODE"""
-        if (mode=="CTR"):
-            cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
-
-        """CFB MODE"""
-        if (mode == "CFB"):
-            cipher = Cipher(algorithms.AES(ks), modes.CFB(iv), backend=default_backend())
-
-        """OFB MODE"""
-        if (mode == "OFB"):
-            cipher = Cipher(algorithms.AES(ks), modes.OFB(iv), backend=default_backend())
+        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
 
         decryptor = cipher.decryptor()
         deciphered_data = decryptor.update(obj) + decryptor.finalize()
@@ -154,7 +128,7 @@ class ClientCipher(CitizenCard):
     """
     HYBRID A-SYMMETRIC KEY CIPHER
     """
-    def hybrid_decipher(self, obj, private_key, mode, ks=None):
+    def hybrid_decipher(self, obj, private_key, ks=None):
         obj, random_pickle = pickle.loads(base64.b64decode(obj))
 
         # decipher using rsa private key
@@ -165,13 +139,13 @@ class ClientCipher(CitizenCard):
         iv = self.asym_decipher(private_key, base64.b64decode(obj["iv"]))
 
         # decipher using symmetric AES CTR
-        return self.sym_decipher(base64.b64decode(obj["obj"]), ks, iv, mode)
+        return self.sym_decipher(base64.b64decode(obj["obj"]), ks, iv)
 
-    def hybrid_cipher(self, obj, public_key, mode, ks=os.urandom(32), cipher_key=True):
+    def hybrid_cipher(self, obj, public_key, ks=os.urandom(32), cipher_key=True):
         # cipher using symmetric cipher AES CTR
         # returns the ciphered obj with the IV
 
-        iv, ciphered_obj = self.sym_cipher(obj, ks, mode)
+        iv, ciphered_obj = self.sym_cipher(obj, ks)
 
         # iv ciphered with the public key
         iv_encrypted = self.asym_cipher(public_key, iv)
@@ -260,10 +234,10 @@ class ClientCipher(CitizenCard):
         })
 
         # sec_data ciphered
-        sec_data_ciphered = self.hybrid_cipher(sec_data,  self.server_pub_key, self.client_cc.get_mode())
+        sec_data_ciphered = self.hybrid_cipher(sec_data,  self.server_pub_key)
 
         # cipher with symmetric cipher the message content
-        iv, ciphered_obj = self.sym_cipher(msg, key, self.client_cc.get_mode(), iv=iv)
+        iv, ciphered_obj = self.sym_cipher(msg, key, iv=iv)
 
         # message to be signed and sent to the server
         return_message = {
@@ -366,8 +340,7 @@ class ClientCipher(CitizenCard):
 
             # cipher DH public key with server pub. key
             # cipher the client DH public key
-            client_dh_ciphered = self.hybrid_cipher(self.client_dh.public_key, self.server_pub_key,
-                                                    self.client_cc.get_mode())
+            client_dh_ciphered = self.hybrid_cipher(self.client_dh.public_key, self.server_pub_key)
 
             # cipher the client public key
 
@@ -376,7 +349,7 @@ class ClientCipher(CitizenCard):
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             )
 
-            client_public_key_ciphered = self.hybrid_cipher(pem, self.server_pub_key, self.client_cc.get_mode())
+            client_public_key_ciphered = self.hybrid_cipher(pem, self.server_pub_key)
 
             return {
                 "data": client_dh_ciphered.decode(),
@@ -395,7 +368,7 @@ class ClientCipher(CitizenCard):
                                     self.server_pub_key)
 
             # decipher the received DH value
-            server_dh_pub = self.hybrid_decipher(val["data"], self.client_app_keys[0], self.client_cc.get_mode())
+            server_dh_pub = self.hybrid_decipher(val["data"], self.client_app_keys[0])
 
             # generate shared secret (client session key)
             self.client_dh.generate_shared_secret(server_dh_pub)
@@ -403,7 +376,7 @@ class ClientCipher(CitizenCard):
             # save the session key
             self.session_key, salt = self.key_derivation(str(self.client_dh.shared_secret).encode())
 
-            salt_ciphered = self.hybrid_cipher(salt, self.server_pub_key, self.client_cc.get_mode())
+            salt_ciphered = self.hybrid_cipher(salt, self.server_pub_key)
 
             return {
                 "phase": 4,

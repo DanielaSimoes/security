@@ -20,9 +20,6 @@ class CitizenCard:
 
     """
     def __init__(self, pin=None):
-
-        self.mode = input("Cipher Mode: (CTR, CFB, OFB): \n")
-
         lib = pkcs11.lib(os.getenv('PKCS11_MODULE',  "/usr/local/lib/opensc-pkcs11.dylib"))
 
         slots = lib.get_slots(token_present=True)
@@ -56,9 +53,6 @@ class CitizenCard:
             self.pin = getpass.getpass("Auth PIN (CARTAO DE CIDADAO): ")
         else:
             self.pin = pin
-
-    def get_mode(self):
-        return self.mode
 
     def sign(self, data):
         with self.token.open(user_pin=self.pin) as session:

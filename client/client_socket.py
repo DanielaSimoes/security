@@ -8,14 +8,14 @@ TERMINATOR = "\r\n"
 
 
 class ClientSocket:
-    def __init__(self, host='127.0.0.1', port=8080):
+    def __init__(self, mode, host='127.0.0.1', port=8080):
         """
         Create a client to connect to server socket.
         :param host: server IP
         :param port: server port
         """
         # init client cipher
-        self.client_cipher = ClientCipher()
+        self.client_cipher = ClientCipher(mode)
 
         # try to connect with server
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,7 +62,7 @@ class ClientSocket:
         if cipher and self.client_cipher.session_key is not None:
             msg = self.client_cipher.secure_layer_encrypt(msg).decode()
             self.key_rotation_use -= 1
-            print("key rotation decrement: %d" % self.key_rotation_use)  # delete me
+            #print("key rotation decrement: %d" % self.key_rotation_use)  # delete me
 
         msg = (msg + TERMINATOR).encode()
 
