@@ -31,7 +31,13 @@ class ServerActions:
         try:
             sec_data = None
 
-            if client.server_cipher.session_key is not None:
+            try:
+                json.loads(request)
+                is_json = True
+            except:
+                is_json = False
+
+            if client.server_cipher.session_key is not None and not is_json:
                 request, sec_data = client.server_cipher.secure_layer_decrypt(request.encode())
 
             logging.info("HANDLING message from %s: %r" %

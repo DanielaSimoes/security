@@ -21,6 +21,9 @@ class ClientSocket:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((host, port))
 
+        # key rotation
+        self.key_rotation_use = 3 # default 10
+
         # init bootstrap
         self.channel_bootstrap()
 
@@ -49,10 +52,17 @@ class ClientSocket:
         :param msg: message to send
         :return: None
         """
+        # if cipher and key_rotation_use == 0, channel_bootstrap again
+        if cipher and self.key_rotation_use == 0:
+            self.channel_bootstrap()
+            self.key_rotation_use = 10
+
         msg = json.dumps(msg)
 
         if cipher and self.client_cipher.session_key is not None:
             msg = self.client_cipher.secure_layer_encrypt(msg).decode()
+            self.key_rotation_use -= 1
+            print("key rotation decrement: %d" % self.key_rotation_use)
 
         msg = (msg + TERMINATOR).encode()
 
