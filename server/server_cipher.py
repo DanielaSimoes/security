@@ -1,6 +1,6 @@
 from diffiehellman.diffiehellman import DiffieHellman
 from cryptography.hazmat.primitives.asymmetric import padding as _aspaadding
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -9,6 +9,7 @@ import pickle
 import os
 import base64
 from server_cc import CitizenCard
+from hashlib import sha256
 import json
 
 
@@ -170,6 +171,34 @@ class ServerCipher:
         return kdf.derive(masterkey), salt
 
     """
+    HMAC - create
+    """
+    def hmac_update_finalize(self, key, data):
+        if not isinstance(key, bytes):
+            key = key.encode()
+
+        if not isinstance(data, bytes):
+            data = pickle.dumps(data)
+
+        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h.update(data)
+        return h.finalize()
+
+    """
+    HMAC - verify
+    """
+    def hmac_verify(self, key, hmac_data, data):
+        if not isinstance(key, bytes):
+            key = key.encode()
+
+        if not isinstance(data, bytes):
+            data = pickle.dumps(data)
+
+        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h.update(data)
+        return h.verify(hmac_data)
+
+    """
     SECURE LAYER ENCAPSULATION
     """
     def secure_layer_encrypt(self, msg: bytes, sec_data: dict):
@@ -184,7 +213,8 @@ class ServerCipher:
                                           cipher_key=False)
 
         sec_data = pickle.dumps({
-            "nounce": sec_data["nounce"]
+            "nounce": sec_data["nounce"],
+            "seq": sec_data["seq"]
         })
 
         # sec_data ciphered
@@ -195,25 +225,23 @@ class ServerCipher:
             "sec_data": base64.b64encode(sec_data_ciphered).decode()
         }
 
-        return_message["signature"] = base64.b64encode(self.asym_sign(self.server_priv_key,
-                                                                      json.dumps(return_message).encode())).decode()
+        # HMAC
+        hmac_key = sha256(key).hexdigest()
+        hmac_data = self.hmac_update_finalize(hmac_key, return_message)
 
         # dump the return message
-        pickle_dumps = pickle.dumps(return_message)
+        pickle_dumps = pickle.dumps([return_message, hmac_data])
 
         return base64.b64encode(pickle_dumps)
 
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
 
+        hmac_data = msg[1]  # hmac is stored in position 1
+        msg = msg[0]  # message is in position 0
+
         data = msg["data"].encode()
         sec_data = base64.b64decode(msg["sec_data"])
-
-        signature = base64.b64decode(msg["signature"].encode())
-        del msg["signature"]
-
-        # verify signature
-        self.asym_validate_sign(json.dumps(msg).encode(), signature, self.client_public_key)
 
         iterations = self.requests_received
         self.requests_received += 1
@@ -227,11 +255,16 @@ class ServerCipher:
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
+        # verify hmac
+        hmac_key = sha256(key).hexdigest()
+        self.hmac_verify(hmac_key, hmac_data, msg)
+
         raw_msg = self.sym_decipher(base64.b64decode(data), key, iv)
 
         data = {"nounce": nounce,
                 "salt": salt,
-                "iterations": iterations}
+                "iterations": iterations,
+                "seq": sec_data["seq"]+1}
 
         return raw_msg, data
 

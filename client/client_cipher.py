@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from hashlib import sha256
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, hmac
 import os
 import pickle
 import base64
@@ -204,6 +204,34 @@ class ClientCipher:
         return kdf.derive(masterkey), salt
 
     """
+    HMAC - create
+    """
+    def hmac_update_finalize(self, key, data):
+        if not isinstance(key, bytes) and isinstance(key, str):
+            key = key.encode()
+
+        if not isinstance(data, bytes):
+            data = pickle.dumps(data)
+
+        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h.update(data)
+        return h.finalize()
+
+    """
+    HMAC - verify
+    """
+    def hmac_verify(self, key, hmac_data, data):
+        if not isinstance(key, bytes) and isinstance(key, str):
+            key = key.encode()
+
+        if not isinstance(data, bytes):
+            data = pickle.dumps(data)
+
+        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h.update(data)
+        return h.verify(hmac_data)
+
+    """
     SECURE LAYER ENCAPSULATION
     """
     def secure_layer_encrypt(self, msg: bytes):
@@ -217,13 +245,14 @@ class ClientCipher:
 
         # saving the iterations ans salt used for the given nounce
         self.warrant_nounces[nounce] = {"iterations": self.request_to_server,
-                                        "salt": salt}
+                                        "salt": salt, "seq": self.request_to_server}
 
         # salt (the salt used to the KDF), nounce (the genuineness warrant), iv (used in the cipher)
         sec_data = pickle.dumps({
             "salt": salt,
             "nounce": nounce,
-            "iv": iv
+            "iv": iv,
+            "seq":  self.request_to_server
         })
 
         # sec_data ciphered
@@ -238,26 +267,22 @@ class ClientCipher:
             "sec_data": base64.b64encode(sec_data_ciphered).decode()
         }
 
-        return_message["signature"] = base64.b64encode(self.asym_sign(self.client_app_keys[0],
-                                                                      json.dumps(return_message).encode())).decode()
-
         self.request_to_server += 1
 
-        # sign using the CC the message
+        # HMAC
+        hmac_key = sha256(key).hexdigest()
+        hmac_data = self.hmac_update_finalize(hmac_key, return_message)
 
         # dump the return message
-        pickle_dumps = pickle.dumps(return_message)
+        pickle_dumps = pickle.dumps([return_message, hmac_data])
 
         return base64.b64encode(pickle_dumps)
 
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
 
-        signature = base64.b64decode(msg["signature"].encode())
-        del msg["signature"]
-
-        # verify signature
-        self.asym_validate_sign(json.dumps(msg).encode(), signature, self.server_pub_key)
+        hmac_data = msg[1] # hmac is stored in position 1
+        msg = msg[0] # message is in position 0
 
         # get sec_data content
         sec_data = pickle.loads(self.hybrid_decipher(base64.b64decode(msg["sec_data"]), self.client_app_keys[0]))
@@ -268,6 +293,10 @@ class ClientCipher:
             print("Something went wrong with the nounce in the secure layer decrypt.")
             exit(1)
 
+        if sec_data["seq"] != (self.warrant_nounces[nounce]["seq"]+1):
+            print("Received wrong sequence number by the server")
+            exit(1)
+
         # the nounce warrant allow us to retrieve the iterations and the salt used to derive the key
         iterations = self.warrant_nounces[nounce]["iterations"]
         salt = self.warrant_nounces[nounce]["salt"]
@@ -276,6 +305,10 @@ class ClientCipher:
         del self.warrant_nounces[nounce]
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
+
+        # verify hmac
+        hmac_key = sha256(key).hexdigest()
+        self.hmac_verify(hmac_key, hmac_data, msg)
 
         raw_msg = self.hybrid_decipher(msg["data"], self.client_app_keys[0], ks=key).decode()
 
