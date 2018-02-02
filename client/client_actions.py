@@ -96,10 +96,10 @@ class ClientActions(ClientSocket):
         })
 
         # only the destination user can see the message
-        dst_msg = self.client_cipher.hybrid_cipher(msg.encode(), peer_public_key).decode()
+        dst_msg = self.client_cipher.hybrid_cipher(msg.encode(), peer_public_key, self.client_cc.get_mode()).decode()
 
         # only the user that sent (receipts box) can see the message
-        copy_msg = self.client_cipher.hybrid_cipher(msg.encode(), public_key).decode()
+        copy_msg = self.client_cipher.hybrid_cipher(msg.encode(), public_key, self.client_cc.get_mode()).decode()
 
         msg = {"type": "send", "src": source_uuid, "dst": destination_uuid, "msg": dst_msg, "copy": copy_msg}
 
@@ -153,7 +153,7 @@ class ClientActions(ClientSocket):
 
         time_now = str(datetime.now().timestamp() * 1000)
         signature = self.cc.sign(msg_content + time_now.encode())
-        signature = base64.b64encode(self.client_cipher.hybrid_cipher(signature, peer_public_key)).decode()
+        signature = base64.b64encode(self.client_cipher.hybrid_cipher(signature, peer_public_key, self.client_cc.get_mode(), self.client_cc.get_mode())).decode()
 
         msg = {"type": "receipt", "id": uuid_msg_box, "msg": message_id, "receipt": signature + "\t\ntimestamp\t\n" + time_now}
         self.sck_send(msg)
