@@ -78,7 +78,7 @@ class Client:
             signature = self.cc.sign(self.uuid)
 
             # cipher the stored key
-            ciphered_key_pem = self.client.client_cipher.sym_cipher(pem, signature[0:32], signature[32:48])[1]  # return 0 -> iv, 1-> ciphered obj
+            ciphered_key_pem = self.client.client_cipher.sym_cipher(pem, signature[0:32], signature[32:48], modes.CTR)[1]  # return 0 -> iv, 1-> ciphered obj
 
             # store key
             self.private_key_pem = pem
@@ -93,7 +93,7 @@ class Client:
             # sign the uuid (known and unique value)
             signature = self.cc.sign(self.uuid)
 
-            self.private_key_pem = self.client.client_cipher.sym_decipher(tmp, signature[0:32], signature[32:48])
+            self.private_key_pem = self.client.client_cipher.sym_decipher(tmp, signature[0:32], signature[32:48], modes.CTR)
 
             self.private_key = serialization.load_pem_private_key(self.private_key_pem, password=None,
                                                                   backend=default_backend())
@@ -118,7 +118,7 @@ class Client:
             signature = self.cc.sign(self.uuid)
 
             # cipher the stored key
-            ciphered_key_pem = self.client.client_cipher.sym_cipher(pem, signature[0:32], signature[32:48])[1]  # return 0 -> iv, 1-> ciphered obj
+            ciphered_key_pem = self.client.client_cipher.sym_cipher(pem, signature[0:32], signature[32:48], modes.CTR)[1]  # return 0 -> iv, 1-> ciphered obj
 
             self.public_key_pem = pem
             public_file = 'utils/user_keys/%s/public_key.pem' % self.uuid
@@ -131,7 +131,7 @@ class Client:
             # sign the uuid (known and unique value)
             signature = self.cc.sign(self.uuid)
 
-            self.public_key_pem = self.client.client_cipher.sym_decipher(tmp, signature[0:32], signature[32:48])
+            self.public_key_pem = self.client.client_cipher.sym_decipher(tmp, signature[0:32], signature[32:48], modes.CTR)
 
             # load public key
             self.public_key = serialization.load_pem_public_key(self.public_key_pem, backend=default_backend())

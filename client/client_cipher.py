@@ -92,14 +92,18 @@ class ClientCipher:
     SYMMETRIC KEY CIPHER
     """
 
-    def sym_cipher(self, obj, ks, iv=os.urandom(16)):
+    def sym_cipher(self, obj, ks, iv=os.urandom(16), mode=None):
         """
 
         :param iv: key to cipher the object
         :param obj: object to be ciphered
         :param ks: key to cipher the object
+        :param mode:
         """
-        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
+        if mode is None:
+            mode = self.mode
+
+        cipher = Cipher(algorithms.AES(ks), mode(iv), backend=default_backend())
 
         # pickle makes the serialization of the object
         pickle_dumps = pickle.dumps([obj, os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
@@ -110,15 +114,19 @@ class ClientCipher:
 
         return iv, ciphered_obj
 
-    def sym_decipher(self, obj, ks, iv):
+    def sym_decipher(self, obj, ks, iv, mode=None):
         """
 
         :param obj:
         :param ks:
         :param iv:
+        :param mode:
         :return:
         """
-        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
+        if mode is None:
+            mode = self.mode
+
+        cipher = Cipher(algorithms.AES(ks), mode(iv), backend=default_backend())
 
         decryptor = cipher.decryptor()
         deciphered_data = decryptor.update(obj) + decryptor.finalize()
@@ -359,7 +367,8 @@ class ClientCipher:
                 "public_key_signature": base64.b64encode(self.asym_sign(self.client_app_keys[0],
                                                                         client_public_key_ciphered)).decode(),
                 "phase": 2,
-                "cipher": "AES&RSA"
+                "cipher": "AES&RSA",
+                "mode": self.mode.name
             }
         elif phase == 3:
             # validate the DH received value

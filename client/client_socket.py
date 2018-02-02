@@ -22,7 +22,7 @@ class ClientSocket:
         self.sock.connect((host, port))
 
         # key rotation
-        self.key_rotation_use =  3 # default 10
+        self.key_rotation_use = 10  # default 10
 
         # init bootstrap
         self.channel_bootstrap()

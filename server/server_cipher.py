@@ -43,6 +43,9 @@ class ServerCipher:
         # load cc libraries
         self.cc = CitizenCard()
 
+        # mode CTR, CFB, OFB
+        self.mode = None
+
     """
     ASYMMETRIC CIPHER
     """
@@ -90,7 +93,7 @@ class ServerCipher:
         :param obj: object to be ciphered
         :param ks: key to cipher the object
         """
-        cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
+        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
 
         # pickle makes the serialization of the object
         pickle_dumps = pickle.dumps([obj, os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
@@ -109,7 +112,7 @@ class ServerCipher:
         :param iv:
         :return:
         """
-        cipher = Cipher(algorithms.AES(ks), modes.CTR(iv), backend=default_backend())
+        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
         decryptor = cipher.decryptor()
         deciphered_data = decryptor.update(obj) + decryptor.finalize()
         data, random = pickle.loads(deciphered_data)
@@ -314,6 +317,17 @@ class ServerCipher:
             # server generate DH private and public key, 1024 para cima ou curva elipticas
             self.server_dh = DiffieHellman(key_length=256)
             self.server_dh.generate_public_key()
+
+            # get mode
+            if val["mode"] == "CTR":
+                self.mode = modes.CTR
+            elif val["mode"] == "CFB":
+                self.mode = modes.CFB
+            elif val["mode"] == "OFB":
+                self.mode = modes.OFB
+            else:
+                print("Wrong input!")
+                exit(1)
     
             # decipher the received DH value
             client_dh_pub = self.hybrid_decipher(val["data"], self.server_priv_key)
@@ -344,8 +358,7 @@ class ServerCipher:
                     "data": server_dh_ciphered.decode(),
                     "data_signature": base64.b64encode(self.asym_sign(self.server_priv_key,
                                                                       server_dh_ciphered)).decode(),
-                    "phase": 3,
-                    "cipher": "AES&RSA"
+                    "phase": 3
                 }
         elif phase == 4:
             # validate signature of the received salt
