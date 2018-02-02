@@ -22,7 +22,7 @@ class ClientSocket:
         self.sock.connect((host, port))
 
         # key rotation
-        self.key_rotation_use = 3 # default 10
+        self.key_rotation_use =  3 # default 10
 
         # init bootstrap
         self.channel_bootstrap()
@@ -62,7 +62,7 @@ class ClientSocket:
         if cipher and self.client_cipher.session_key is not None:
             msg = self.client_cipher.secure_layer_encrypt(msg).decode()
             self.key_rotation_use -= 1
-            print("key rotation decrement: %d" % self.key_rotation_use)
+            print("key rotation decrement: %d" % self.key_rotation_use)  # delete me
 
         msg = (msg + TERMINATOR).encode()
 
