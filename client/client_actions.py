@@ -10,7 +10,7 @@ import uuid
 
 
 class ClientActions(ClientSocket):
-    def __init__(self, mode, cc, host='127.0.0.1', port=8080):
+    def __init__(self, mode, hmac_hash_type, cc, host='127.0.0.1', port=8080):
         """
         Create a client to connect to server socket.
         :param cc: Citizen Card user
@@ -18,7 +18,7 @@ class ClientActions(ClientSocket):
         :param port: server port
         """
         self.cc = cc
-        super().__init__(mode, host, port)
+        super().__init__(mode, hmac_hash_type, host, port)
 
     def create(self, uuid, public_key_pem):
         """

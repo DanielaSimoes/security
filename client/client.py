@@ -2,6 +2,7 @@ from client_actions import ClientActions
 from client_cc import CitizenCard
 from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.hashes import SHA256, SHA512
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 import os, errno
@@ -21,10 +22,20 @@ class Client:
             print("Wrong input!")
             exit(1)
 
+        hmac_hash_type = input("HMAC Hash Type: (SHA256, SHA512): \n")
+
+        if hmac_hash_type == "SHA256":
+            hmac_hash_type = SHA256
+        elif hmac_hash_type == "SHA512":
+            hmac_hash_type = SHA512
+        else:
+            print("Wrong input!")
+            exit(1)
+
         print("Making a secure channel with the server...")
 
         self.cc = CitizenCard()
-        self.client = ClientActions(mode, self.cc)
+        self.client = ClientActions(mode, hmac_hash_type, self.cc)
 
         # generate the uuid of the user
         print("Generating a UUID based in your citizen card...")

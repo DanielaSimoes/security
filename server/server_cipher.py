@@ -183,7 +183,7 @@ class ServerCipher:
         if not isinstance(data, bytes):
             data = pickle.dumps(data)
 
-        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h = hmac.HMAC(key, self.hmac_hash(), backend=default_backend())
         h.update(data)
         return h.finalize()
 
@@ -197,7 +197,7 @@ class ServerCipher:
         if not isinstance(data, bytes):
             data = pickle.dumps(data)
 
-        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h = hmac.HMAC(key, self.hmac_hash(), backend=default_backend())
         h.update(data)
         return h.verify(hmac_data)
 
@@ -326,6 +326,11 @@ class ServerCipher:
             else:
                 print("Wrong input!")
                 exit(1)
+
+            if val["hmac_hash"] == "sha256":
+                self.hmac_hash = hashes.SHA256
+            elif val["hmac_hash"] == "sha512":
+                self.hmac_hash = hashes.SHA512
     
             # decipher the received DH value
             client_dh_pub = self.hybrid_decipher(val["data"], self.server_priv_key)

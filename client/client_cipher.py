@@ -19,8 +19,9 @@ RANDOM_ENTROPY_GENERATOR_SIZE = 32
 
 class ClientCipher:
 
-    def __init__(self, mode):
+    def __init__(self, mode, hmac_hash_type):
         self.mode = mode
+        self.hmac_hash_type = hmac_hash_type
 
         # store client app keys
         self.client_app_keys = self.generate_keys()
@@ -199,7 +200,7 @@ class ClientCipher:
         if not isinstance(data, bytes):
             data = pickle.dumps(data)
 
-        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h = hmac.HMAC(key, self.hmac_hash_type(), backend=default_backend())
         h.update(data)
         return h.finalize()
 
@@ -213,7 +214,7 @@ class ClientCipher:
         if not isinstance(data, bytes):
             data = pickle.dumps(data)
 
-        h = hmac.HMAC(key, hashes.SHA256(), backend=default_backend())
+        h = hmac.HMAC(key, self.hmac_hash_type(), backend=default_backend())
         h.update(data)
         return h.verify(hmac_data)
 
@@ -368,7 +369,8 @@ class ClientCipher:
                                                                         client_public_key_ciphered)).decode(),
                 "phase": 2,
                 "cipher": "AES&RSA",
-                "mode": self.mode.name
+                "mode": self.mode.name,
+                "hmac_hash": self.hmac_hash_type.name
             }
         elif phase == 3:
             # validate the DH received value

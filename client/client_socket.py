@@ -8,14 +8,14 @@ TERMINATOR = "\r\n"
 
 
 class ClientSocket:
-    def __init__(self, mode, host='127.0.0.1', port=8080):
+    def __init__(self, mode, hmac_hash_type, host='127.0.0.1', port=8080):
         """
         Create a client to connect to server socket.
         :param host: server IP
         :param port: server port
         """
         # init client cipher
-        self.client_cipher = ClientCipher(mode)
+        self.client_cipher = ClientCipher(mode, hmac_hash_type)
 
         # try to connect with server
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
