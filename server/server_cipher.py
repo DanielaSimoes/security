@@ -211,37 +211,35 @@ class ServerCipher:
         key, salt = self.key_derivation(masterkey=self.session_key, salt=sec_data["salt"],
                                         iterations=sec_data["iterations"])
 
-        ciphered_msg = self.hybrid_cipher(msg, self.client_public_key,
-                                          ks=key,
-                                          cipher_key=False)
+        # HMAC
+        hmac_key = sha256(key).hexdigest()
+        hmac_data = self.hmac_update_finalize(hmac_key, msg)
+
+        pickle_dumps = pickle.dumps([msg, hmac_data])
+
+        iv, ciphered_msg = self.sym_cipher(pickle_dumps, ks=key)
 
         sec_data = pickle.dumps({
             "nounce": sec_data["nounce"],
-            "seq": sec_data["seq"]
+            "seq": sec_data["seq"],
+            "iv": iv
         })
 
         # sec_data ciphered
         sec_data_ciphered = self.hybrid_cipher(sec_data, self.client_public_key)
 
         return_message = {
-            "data": ciphered_msg.decode(),
+            "data": base64.b64encode(ciphered_msg).decode(),
             "sec_data": base64.b64encode(sec_data_ciphered).decode()
         }
 
-        # HMAC
-        hmac_key = sha256(key).hexdigest()
-        hmac_data = self.hmac_update_finalize(hmac_key, return_message)
-
         # dump the return message
-        pickle_dumps = pickle.dumps([return_message, hmac_data])
+        pickle_dumps = pickle.dumps(return_message)
 
         return base64.b64encode(pickle_dumps)
 
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
-
-        hmac_data = msg[1]  # hmac is stored in position 1
-        msg = msg[0]  # message is in position 0
 
         data = msg["data"].encode()
         sec_data = base64.b64decode(msg["sec_data"])
@@ -258,18 +256,18 @@ class ServerCipher:
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
+        raw_msg = pickle.loads(self.sym_decipher(base64.b64decode(data), key, iv))
+
         # verify hmac
         hmac_key = sha256(key).hexdigest()
-        self.hmac_verify(hmac_key, hmac_data, msg)
-
-        raw_msg = self.sym_decipher(base64.b64decode(data), key, iv)
+        self.hmac_verify(hmac_key, raw_msg[1], raw_msg[0])
 
         data = {"nounce": nounce,
                 "salt": salt,
                 "iterations": iterations,
                 "seq": sec_data["seq"]+1}
 
-        return raw_msg, data
+        return raw_msg[0], data
 
     """
     CLIENT SERVER SESSION KEY NEGOTIATION

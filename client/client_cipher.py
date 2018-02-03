@@ -244,8 +244,15 @@ class ClientCipher:
         # sec_data ciphered
         sec_data_ciphered = self.hybrid_cipher(sec_data,  self.server_pub_key)
 
+        # HMAC
+        hmac_key = sha256(key).hexdigest()
+        hmac_data = self.hmac_update_finalize(hmac_key, msg)
+
+        msg = [msg, hmac_data]
+        pickle_dumps = pickle.dumps(msg)
+
         # cipher with symmetric cipher the message content
-        iv, ciphered_obj = self.sym_cipher(msg, key, iv=iv)
+        iv, ciphered_obj = self.sym_cipher(pickle_dumps, key, iv=iv)
 
         # message to be signed and sent to the server
         return_message = {
@@ -255,20 +262,13 @@ class ClientCipher:
 
         self.request_to_server += 1
 
-        # HMAC
-        hmac_key = sha256(key).hexdigest()
-        hmac_data = self.hmac_update_finalize(hmac_key, return_message)
-
         # dump the return message
-        pickle_dumps = pickle.dumps([return_message, hmac_data])
+        pickle_dumps = pickle.dumps(return_message)
 
         return base64.b64encode(pickle_dumps)
 
     def secure_layer_decrypt(self, msg: bytes):
         msg = pickle.loads(base64.b64decode(msg))
-
-        hmac_data = msg[1] # hmac is stored in position 1
-        msg = msg[0] # message is in position 0
 
         # get sec_data content
         sec_data = pickle.loads(self.hybrid_decipher(base64.b64decode(msg["sec_data"]), self.client_app_keys[0]))
@@ -292,13 +292,13 @@ class ClientCipher:
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
+        raw_msg = pickle.loads(self.sym_decipher(base64.b64decode(msg["data"]), ks=key, iv=sec_data["iv"]))
+
         # verify hmac
         hmac_key = sha256(key).hexdigest()
-        self.hmac_verify(hmac_key, hmac_data, msg)
+        self.hmac_verify(hmac_key, raw_msg[1], raw_msg[0])
 
-        raw_msg = self.hybrid_decipher(msg["data"], self.client_app_keys[0], ks=key).decode()
-
-        return raw_msg
+        return raw_msg[0]
 
     """
     CLIENT SERVER SESSION KEY NEGOTIATION
