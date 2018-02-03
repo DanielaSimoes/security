@@ -21,6 +21,7 @@ class Client:
         self.id = None
         self.sa_data = None
         self.server_cipher = ServerCipher()
+        self.me = None  # user id
 
     def __str__(self):
         """ Converts object into string.

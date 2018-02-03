@@ -200,7 +200,8 @@ class Client:
             for peer in result["result"]:
                 print("Peer id: " + str(peer["uuid"]))
         elif option == 4:
-            sent_messages = self.client.all(self.server_id)["result"][1]
+            tmp = self.client.all(self.server_id)
+            sent_messages = tmp["result"][1]
 
             if len(sent_messages) > 0:
                 print("Select which message do you want to see the receipt: ")

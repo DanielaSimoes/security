@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from hashlib import sha256
 from cryptography.hazmat.primitives import hashes, hmac
+from cryptography.hazmat.primitives.ciphers import modes
 import os
 import pickle
 import base64
@@ -102,7 +103,7 @@ class ClientCipher:
         :param mode:
         """
         if mode is None:
-            mode = self.mode
+            mode = modes.CTR
 
         cipher = Cipher(algorithms.AES(ks), mode(iv), backend=default_backend())
 
@@ -125,7 +126,7 @@ class ClientCipher:
         :return:
         """
         if mode is None:
-            mode = self.mode
+            mode = modes.CTR
 
         cipher = Cipher(algorithms.AES(ks), mode(iv), backend=default_backend())
 
@@ -253,7 +254,7 @@ class ClientCipher:
         pickle_dumps = pickle.dumps(msg)
 
         # cipher with symmetric cipher the message content
-        iv, ciphered_obj = self.sym_cipher(pickle_dumps, key, iv=iv)
+        iv, ciphered_obj = self.sym_cipher(pickle_dumps, key, iv=iv, mode=self.mode)
 
         # message to be signed and sent to the server
         return_message = {
@@ -293,7 +294,7 @@ class ClientCipher:
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
-        raw_msg = pickle.loads(self.sym_decipher(base64.b64decode(msg["data"]), ks=key, iv=sec_data["iv"]))
+        raw_msg = pickle.loads(self.sym_decipher(base64.b64decode(msg["data"]), ks=key, iv=sec_data["iv"], mode=self.mode))
 
         # verify hmac
         hmac_key = sha256(key).hexdigest()

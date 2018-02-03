@@ -86,14 +86,17 @@ class ServerCipher:
     SYMMETRIC KEY CIPHER
     """
 
-    def sym_cipher(self, obj, ks, iv=os.urandom(16)):
+    def sym_cipher(self, obj, ks, iv=os.urandom(16), mode=None):
         """
 
         :param iv: key to cipher the object
         :param obj: object to be ciphered
         :param ks: key to cipher the object
         """
-        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
+        if mode is None:
+            mode = modes.CTR
+
+        cipher = Cipher(algorithms.AES(ks), mode(iv), backend=default_backend())
 
         # pickle makes the serialization of the object
         pickle_dumps = pickle.dumps([obj, os.urandom(RANDOM_ENTROPY_GENERATOR_SIZE)])
@@ -104,7 +107,7 @@ class ServerCipher:
 
         return iv, ciphered_obj
 
-    def sym_decipher(self, obj, ks, iv):
+    def sym_decipher(self, obj, ks, iv, mode=None):
         """
 
         :param obj:
@@ -112,7 +115,10 @@ class ServerCipher:
         :param iv:
         :return:
         """
-        cipher = Cipher(algorithms.AES(ks), self.mode(iv), backend=default_backend())
+        if mode is None:
+            mode = modes.CTR
+
+        cipher = Cipher(algorithms.AES(ks), mode(iv), backend=default_backend())
         decryptor = cipher.decryptor()
         deciphered_data = decryptor.update(obj) + decryptor.finalize()
         data, random = pickle.loads(deciphered_data)
@@ -217,7 +223,7 @@ class ServerCipher:
 
         pickle_dumps = pickle.dumps([msg, hmac_data])
 
-        iv, ciphered_msg = self.sym_cipher(pickle_dumps, ks=key)
+        iv, ciphered_msg = self.sym_cipher(pickle_dumps, ks=key, mode=self.mode)
 
         sec_data = pickle.dumps({
             "nounce": sec_data["nounce"],
@@ -256,7 +262,7 @@ class ServerCipher:
 
         key, salt = self.key_derivation(self.session_key, iterations=iterations, salt=salt)
 
-        raw_msg = pickle.loads(self.sym_decipher(base64.b64decode(data), key, iv))
+        raw_msg = pickle.loads(self.sym_decipher(base64.b64decode(data), key, iv, self.mode))
 
         # verify hmac
         hmac_key = sha256(key).hexdigest()
